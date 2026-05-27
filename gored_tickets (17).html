@@ -1,0 +1,1141 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="theme-color" content="#f5f5f0"/>
+<title>GoRed · Mantenimiento</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css"/>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; width: 100%; height: 100vh; overflow: hidden; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); }
+  #app { width: 100%; height: 100%; display: flex; flex-direction: column; }
+  .screens-container { flex: 1; overflow: hidden; position: relative; }
+  .screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow-y: auto; display: none; }
+  .screen.active { display: flex; flex-direction: column; }
+:root{
+  --bg:#f5f5f0;--surface:#fff;--surface2:#f0efe9;--border:rgba(0,0,0,0.1);
+  --text:#1a1a1a;--text2:#666660;--text3:#999993;
+  --blue:#185FA5;--blue-bg:#E6F1FB;
+  --teal:#0F6E56;--teal-bg:#E1F5EE;
+  --amber:#854F0B;--amber-bg:#FAEEDA;
+  --red:#A32D2D;--red-bg:#FCEBEB;
+  --green:#3B6D11;--green-bg:#EAF3DE;
+  --purple:#5B2D8E;--purple-bg:#F0E8FB;
+  --r:14px;--r-sm:8px;
+  --nav-h:72px;
+  --shadow:0 4px 0 rgba(0,0,0,0.18),0 1px 3px rgba(0,0,0,0.12);
+  --shadow-sm:0 1px 0 rgba(0,0,0,0.15);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{
+  height:100%;
+  height:-webkit-fill-available;
+  overflow:hidden;
+  background:var(--bg);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  color:var(--text);
+}
+.app{
+  display:flex;flex-direction:column;
+  height:100vh;
+  height:-webkit-fill-available;
+  max-height:100vh;
+}
+.screens{flex:1;overflow:hidden;position:relative;min-height:0;}
+.screen{
+  position:absolute;inset:0;
+  overflow-y:auto;overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+  padding-bottom:16px;
+  display:none;background:var(--bg);
+}
+.screen.active{display:block;}
+
+/* STATUS */
+.sb{height:48px;padding:0 16px;display:flex;align-items:center;justify-content:space-between;background:var(--bg);flex-shrink:0;}
+.sb .time{font-size:16px;font-weight:700;}
+.sb .icons{display:flex;gap:6px;font-size:15px;}
+
+/* BOTTOM NAV */
+.bnav{
+  flex-shrink:0;
+  background:var(--surface);
+  border-top:0.5px solid var(--border);
+  display:flex;
+  padding:8px 10px;
+  padding-bottom:max(8px, env(safe-area-inset-bottom));
+  gap:6px;
+  height:auto;
+  min-height:var(--nav-h);
+}
+.bn{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:3px;padding:8px 4px;border-radius:var(--r-sm);
+  border:0.5px solid rgba(0,0,0,0.1);
+  cursor:pointer;font-size:10px;font-weight:600;
+  color:var(--text3);background:var(--surface2);
+  box-shadow:var(--shadow);
+  transition:box-shadow 0.08s,transform 0.08s;
+  -webkit-user-select:none;user-select:none;
+  letter-spacing:0.02em;
+}
+.bn i{font-size:20px;line-height:1;}
+.bn.active{background:var(--surface);color:var(--blue);border-color:rgba(24,95,165,0.3);}
+.bn.active i{color:var(--blue);}
+.bn:active,.bn.press{transform:translateY(3px);box-shadow:var(--shadow-sm);}
+
+/* PAGE */
+.ph{padding:16px 16px 8px;}
+.pt{font-size:22px;font-weight:700;letter-spacing:-0.3px;}
+.ps{font-size:13px;color:var(--text2);margin-top:2px;}
+.ph-row{display:flex;align-items:center;gap:10px;padding:12px 16px 8px;}
+.back{background:none;border:none;cursor:pointer;color:var(--text2);font-size:22px;padding:4px;display:flex;align-items:center;}
+.sl{font-size:11px;font-weight:700;color:var(--text3);letter-spacing:0.07em;text-transform:uppercase;padding:0 16px 10px;}
+
+/* METRICS — solo 2 */
+.mgrid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:8px 16px 16px;}
+.metric{background:var(--surface);border-radius:var(--r);padding:16px;border:0.5px solid var(--border);box-shadow:0 1px 4px rgba(0,0,0,0.05);}
+.ml{font-size:11px;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em;font-weight:600;}
+.mv{font-size:32px;font-weight:700;letter-spacing:-0.5px;}
+
+/* NAV CARDS — 3 oficiales + 2 extra */
+.ngrid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:0 16px 16px;}
+.ngrid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 16px 16px;}
+.nc{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--r);padding:14px 12px 12px;cursor:pointer;position:relative;box-shadow:0 2px 6px rgba(0,0,0,0.05);transition:transform 0.08s;}
+.nc:active{transform:scale(0.97);}
+.nc-icon{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;margin-bottom:10px;}
+.nc-icon i{font-size:18px;}
+.nc-count{font-size:26px;font-weight:700;letter-spacing:-0.5px;line-height:1;margin-bottom:3px;}
+.nc-title{font-size:12px;font-weight:700;color:var(--text);}
+.nc-sub{font-size:10px;color:var(--text2);margin-top:1px;}
+.nc-arr{position:absolute;top:12px;right:12px;font-size:12px;color:var(--text3);}
+
+/* OFICIAL CARDS */
+.oc{display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--surface);border-bottom:0.5px solid var(--border);cursor:pointer;}
+.oc:active{background:var(--surface2);}
+.av{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;}
+.av-a{background:var(--blue-bg);color:var(--blue);}
+.av-b{background:var(--teal-bg);color:var(--teal);}
+.av-c{background:var(--amber-bg);color:var(--amber);}
+
+/* BADGE */
+.badge{display:inline-block;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;}
+.b-vital{background:var(--purple-bg);color:var(--purple);}
+.b-alta{background:var(--red-bg);color:var(--red);}
+.b-media{background:var(--amber-bg);color:var(--amber);}
+.b-baja{background:var(--surface2);color:var(--text2);border:0.5px solid var(--border);}
+
+/* TICKETS */
+.tklist{padding:0 16px;}
+.tk{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--r);padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:transform 0.08s;}
+.tk:active{transform:scale(0.98);}
+.tk.sel{border-color:var(--blue);background:var(--blue-bg);}
+.tk-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;gap:8px;}
+.tk-title{font-size:14px;font-weight:600;color:var(--text);line-height:1.4;flex:1;}
+.tk.sel .tk-title{color:var(--blue);}
+.tk-bot{display:flex;justify-content:space-between;align-items:center;}
+.tk-meta{font-size:11px;color:var(--text3);}
+.tk-num{font-size:11px;color:var(--text3);font-weight:600;margin-bottom:4px;}
+.chk{width:22px;height:22px;border-radius:6px;border:1.5px solid rgba(0,0,0,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;background:var(--surface);}
+.tk.sel .chk{background:var(--blue);border-color:var(--blue);}
+.chk i{font-size:13px;color:white;display:none;}
+.tk.sel .chk i{display:block;}
+
+/* ACTION BAR */
+.abar{
+  position:sticky;
+  bottom:0;
+  background:var(--bg);
+  padding:10px 16px;
+  border-top:0.5px solid var(--border);
+  display:flex;flex-direction:column;gap:8px;
+}
+.auto-box{border:0.5px solid var(--border);border-radius:12px;padding:10px;background:var(--surface2);}
+.auto-lbl{font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;display:flex;align-items:center;gap:5px;}
+.auto-lbl i{font-size:13px;color:var(--blue);}
+.bp{background:var(--text);color:white;border:none;border-radius:var(--r-sm);padding:13px;font-size:13px;font-weight:600;width:100%;cursor:pointer;box-shadow:0 3px 0 rgba(0,0,0,0.25);transition:transform 0.08s,box-shadow 0.08s;}
+.bp:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,0.25);}
+.bp:disabled{opacity:0.4;}
+.brow{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+.bs{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--r-sm);padding:11px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text);box-shadow:0 3px 0 rgba(0,0,0,0.08);transition:transform 0.08s,box-shadow 0.08s;}
+.bs:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,0.08);}
+.bmanual{width:100%;background:none;border:1.5px solid var(--text);border-radius:var(--r-sm);padding:12px;font-size:13px;font-weight:700;cursor:pointer;color:var(--text);display:flex;align-items:center;justify-content:center;gap:7px;}
+.bmanual:active{background:var(--surface2);}
+
+/* MANUAL */
+.mc{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:12px;}
+.mc-title{font-size:11px;font-weight:700;color:var(--text3);letter-spacing:0.07em;text-transform:uppercase;padding:10px 14px;background:var(--surface2);border-bottom:0.5px solid var(--border);}
+.sf{padding:12px 14px;border-bottom:0.5px solid var(--border);}
+.sf:last-child{border-bottom:none;}
+.sf-lbl{font-size:12px;color:var(--text2);margin-bottom:8px;font-weight:600;}
+.sgrid{display:flex;flex-wrap:wrap;gap:8px;}
+.sopt{background:var(--surface2);border:0.5px solid var(--border);border-radius:20px;padding:8px 14px;font-size:13px;font-weight:500;cursor:pointer;color:var(--text2);}
+.sopt.chosen{background:var(--text);color:white;border-color:var(--text);}
+.sopt.chosen-vital{background:var(--purple-bg);color:var(--purple);border-color:var(--purple);}
+.sopt.chosen-alta{background:var(--red-bg);color:var(--red);border-color:var(--red);}
+.sopt.chosen-media{background:var(--amber-bg);color:var(--amber);border-color:var(--amber);}
+.sopt.chosen-baja{background:var(--surface2);color:var(--text2);border-color:var(--text2);}
+.tc-box{background:var(--blue-bg);border:0.5px solid rgba(24,95,165,0.2);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:var(--blue);display:flex;align-items:center;gap:8px;font-weight:500;}
+
+/* DETALLE */
+.dcard{background:var(--surface);border-radius:var(--r);border:0.5px solid var(--border);overflow:hidden;margin-bottom:12px;}
+.drow{display:flex;justify-content:space-between;align-items:flex-start;padding:12px 16px;border-bottom:0.5px solid var(--border);gap:12px;}
+.drow:last-child{border-bottom:none;}
+.dlbl{font-size:13px;color:var(--text2);display:flex;align-items:center;gap:6px;white-space:nowrap;flex-shrink:0;}
+.dlbl i{font-size:15px;}
+.dval{font-size:13px;font-weight:600;color:var(--text);text-align:right;}
+.ddesc{background:var(--surface);border-radius:var(--r);padding:14px 16px;font-size:14px;color:var(--text2);line-height:1.7;margin-bottom:12px;border:0.5px solid var(--border);}
+.ddesc-title{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;}
+
+/* CONFIRM */
+.clist{padding:0 16px;}
+.ci{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--r);padding:12px 14px;margin-bottom:8px;}
+.ci-num{font-size:11px;color:var(--text3);margin-bottom:3px;font-weight:600;}
+.ci-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px;line-height:1.4;}
+.ci-arr{display:flex;align-items:center;gap:8px;}
+.ci-dest{font-size:13px;font-weight:600;color:var(--green);flex:1;}
+
+/* ALERT */
+.alert-box{margin:0 16px 20px;background:var(--amber-bg);border:0.5px solid rgba(133,79,11,0.2);border-radius:var(--r);overflow:hidden;}
+.alert-hdr{padding:10px 14px;font-size:11px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:0.06em;border-bottom:0.5px solid rgba(133,79,11,0.15);}
+.alert-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:0.5px solid rgba(133,79,11,0.1);}
+.alert-row:last-child{border-bottom:none;}
+
+/* DONE */
+.done-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 32px;text-align:center;}
+.done-icon{font-size:64px;color:var(--green);margin-bottom:16px;}
+
+/* OVERLAY */
+.overlay{position:fixed;inset:0;background:rgba(245,245,240,0.95);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:200;gap:14px;}
+.spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin 0.8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* EMPTY */
+.empty{padding:48px 32px;text-align:center;color:var(--text2);}
+.empty i{font-size:48px;color:var(--text3);margin-bottom:12px;display:block;}
+
+/* FILTROS */
+.frow{display:flex;gap:6px;padding:0 16px 12px;overflow-x:auto;scrollbar-width:none;}
+.frow::-webkit-scrollbar{display:none;}
+.fbtn{background:var(--surface);border:0.5px solid var(--border);border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text2);white-space:nowrap;flex-shrink:0;}
+.fbtn.active{background:var(--text);color:white;border-color:var(--text);}
+
+/* PROG */
+.prog-bg{height:5px;background:var(--surface2);border-radius:4px;overflow:hidden;margin:8px 0;}
+.prog-fill{height:5px;background:var(--blue);border-radius:4px;width:0%;transition:width 0.4s ease;}
+.anal-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--border);font-size:13px;color:var(--text2);}
+.anal-row:last-child{border-bottom:none;}
+
+/* REPORT */
+.rcard{background:var(--surface);border-radius:var(--r);margin:0 16px 12px;border:0.5px solid var(--border);overflow:hidden;}
+.rrow{display:flex;justify-content:space-between;align-items:center;padding:13px 16px;border-bottom:0.5px solid var(--border);}
+.rrow:last-child{border-bottom:none;}
+
+/* CONFIG */
+.csec{background:var(--surface);border-radius:var(--r);margin:0 16px 12px;overflow:hidden;border:0.5px solid var(--border);}
+.csec-title{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.07em;padding:12px 16px 8px;background:var(--surface2);border-bottom:0.5px solid var(--border);}
+.cfield{padding:12px 16px;border-bottom:0.5px solid var(--border);}
+.cfield:last-child{border-bottom:none;}
+.clbl{font-size:12px;color:var(--text2);margin-bottom:6px;font-weight:500;}
+.hint{font-size:11px;color:var(--text3);margin-top:5px;}
+textarea,input[type=text],input[type=number],input[type=password]{width:100%;font-family:inherit;font-size:14px;color:var(--text);background:var(--surface2);border:0.5px solid var(--border);border-radius:var(--r-sm);padding:10px 12px;outline:none;}
+textarea:focus,input:focus{border-color:var(--blue);}
+textarea{resize:vertical;}
+.rule-row{display:flex;gap:8px;margin-bottom:8px;}
+.rule-row input{flex:1;}
+.rdel{background:none;border:0.5px solid var(--border);border-radius:var(--r-sm);padding:8px 10px;cursor:pointer;color:var(--text2);font-size:16px;flex-shrink:0;}
+.add-rule{width:100%;background:none;border:1px dashed var(--border);border-radius:var(--r-sm);padding:10px;font-size:13px;color:var(--text2);cursor:pointer;font-weight:600;margin-top:4px;}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="sb"><span class="time" id="hora"></span><span class="icons"><i class="ti ti-wifi"></i><i class="ti ti-battery-2"></i></span></div>
+
+  <div id="overlay" class="overlay"><div class="spinner"></div><div style="font-size:14px;color:var(--text2);font-weight:500;" id="overlay-txt">Conectando...</div></div>
+
+  <div class="screens">
+
+    <!-- HOME -->
+    <div class="screen active" id="s-home">
+      <div class="ph"><div class="pt">Panel principal</div><div class="ps" id="fecha"></div></div>
+      <div class="sl">Acceso rápido</div>
+      <div class="ngrid2">
+        <div class="nc" onclick="navTo('s-espera','bn-espera')">
+          <i class="ti ti-chevron-right nc-arr"></i>
+          <div class="nc-icon" style="background:var(--amber-bg);"><i class="ti ti-clock" style="color:var(--amber);"></i></div>
+          <div class="nc-count" style="color:var(--amber);" id="cnt-espera">—</div>
+          <div class="nc-title">En espera</div><div class="nc-sub">Sin derivar</div>
+        </div>
+        <div class="nc" onclick="goTo('s-vencidos')">
+          <i class="ti ti-chevron-right nc-arr"></i>
+          <div class="nc-icon" style="background:var(--red-bg);"><i class="ti ti-alarm" style="color:var(--red);"></i></div>
+          <div class="nc-count" style="color:var(--red);" id="cnt-venc2">—</div>
+          <div class="nc-title">Vencidos</div><div class="nc-sub">Sector B</div>
+        </div>
+      </div>
+      <div class="sl">Oficiales</div>
+      <div class="ngrid3" style="margin-bottom:4px;">
+        <div class="nc" onclick="goTo('s-of-A')">
+          <i class="ti ti-chevron-right nc-arr"></i>
+          <div class="nc-icon" style="background:var(--blue-bg);"><i class="ti ti-hard-hat" style="color:var(--blue);"></i></div>
+          <div class="nc-count" style="color:var(--blue);" id="cnt-ofA">—</div>
+          <div class="nc-title">Elio M.</div><div class="nc-sub">Of. A</div>
+        </div>
+        <div class="nc" onclick="goTo('s-of-B')">
+          <i class="ti ti-chevron-right nc-arr"></i>
+          <div class="nc-icon" style="background:var(--teal-bg);"><i class="ti ti-hard-hat" style="color:var(--teal);"></i></div>
+          <div class="nc-count" style="color:var(--teal);" id="cnt-ofB">—</div>
+          <div class="nc-title">Carlos C.</div><div class="nc-sub">Of. B</div>
+        </div>
+        <div class="nc" onclick="goTo('s-of-C')">
+          <i class="ti ti-chevron-right nc-arr"></i>
+          <div class="nc-icon" style="background:var(--amber-bg);"><i class="ti ti-hard-hat" style="color:var(--amber);"></i></div>
+          <div class="nc-count" style="color:var(--amber);" id="cnt-ofC">—</div>
+          <div class="nc-title">Fausto C.</div><div class="nc-sub">Of. C</div>
+        </div>
+      </div>
+      <div class="sl" style="margin-top:8px;">Detalle oficiales</div>
+      <div class="oc" onclick="goTo('s-of-A')">
+        <div class="av av-a">EA</div>
+        <div style="flex:1;"><div style="font-size:15px;font-weight:600;">Elio Molina</div><div style="font-size:12px;color:var(--text2);">Of. A · 8:00–16:30 · <span id="lbl-ofA">—</span></div></div>
+        <i class="ti ti-chevron-right" style="font-size:16px;color:var(--text3);"></i>
+      </div>
+      <div class="oc" onclick="goTo('s-of-B')">
+        <div class="av av-b">CC</div>
+        <div style="flex:1;"><div style="font-size:15px;font-weight:600;">Carlos Carranza</div><div style="font-size:12px;color:var(--text2);">Of. B · 6:00–14:30 · <span id="lbl-ofB">—</span></div></div>
+        <i class="ti ti-chevron-right" style="font-size:16px;color:var(--text3);"></i>
+      </div>
+      <div class="oc" onclick="goTo('s-of-C')">
+        <div class="av av-c">FC</div>
+        <div style="flex:1;"><div style="font-size:15px;font-weight:600;">Fausto Casco</div><div style="font-size:12px;color:var(--text2);">Of. C · 14:00–22:00 · <span id="lbl-ofC">—</span></div></div>
+        <i class="ti ti-chevron-right" style="font-size:16px;color:var(--text3);"></i>
+      </div>
+      <div style="height:12px;"></div>
+      <div id="alert-wrap"></div>
+      <div id="error-home" style="margin:12px 16px;background:var(--red-bg);border:0.5px solid rgba(163,45,45,0.2);border-radius:var(--r-sm);padding:12px 14px;font-size:13px;color:var(--red);display:none;"></div>
+    </div>
+
+    <!-- OFICIAL A -->
+    <div class="screen" id="s-of-A">
+      <div class="ph-row"><button class="back" onclick="back()"><i class="ti ti-arrow-left"></i></button><div><div class="pt" style="font-size:18px;">Elio Molina</div><div class="ps">Oficial A · 8:00–16:30</div></div></div>
+      <div class="frow"><button class="fbtn active" onclick="filtrarOf(this,'todos','A')">Todos</button><button class="fbtn" onclick="filtrarOf(this,'new','A')">Nuevos</button><button class="fbtn" onclick="filtrarOf(this,'open','A')">Abiertos</button><button class="fbtn" onclick="filtrarOf(this,'vital','A')">Vital</button><button class="fbtn" onclick="filtrarOf(this,'alta','A')">Alta</button></div>
+      <div id="list-ofA" class="tklist"></div>
+    </div>
+
+    <!-- OFICIAL B -->
+    <div class="screen" id="s-of-B">
+      <div class="ph-row"><button class="back" onclick="back()"><i class="ti ti-arrow-left"></i></button><div><div class="pt" style="font-size:18px;">Carlos Carranza</div><div class="ps">Oficial B · 6:00–14:30</div></div></div>
+      <div class="frow"><button class="fbtn active" onclick="filtrarOf(this,'todos','B')">Todos</button><button class="fbtn" onclick="filtrarOf(this,'new','B')">Nuevos</button><button class="fbtn" onclick="filtrarOf(this,'open','B')">Abiertos</button><button class="fbtn" onclick="filtrarOf(this,'vital','B')">Vital</button><button class="fbtn" onclick="filtrarOf(this,'alta','B')">Alta</button></div>
+      <div id="list-ofB" class="tklist"></div>
+    </div>
+
+    <!-- OFICIAL C -->
+    <div class="screen" id="s-of-C">
+      <div class="ph-row"><button class="back" onclick="back()"><i class="ti ti-arrow-left"></i></button><div><div class="pt" style="font-size:18px;">Fausto Casco</div><div class="ps">Oficial C · 14:00–22:00</div></div></div>
+      <div class="frow"><button class="fbtn active" onclick="filtrarOf(this,'todos','C')">Todos</button><button class="fbtn" onclick="filtrarOf(this,'new','C')">Nuevos</button><button class="fbtn" onclick="filtrarOf(this,'open','C')">Abiertos</button><button class="fbtn" onclick="filtrarOf(this,'vital','C')">Vital</button><button class="fbtn" onclick="filtrarOf(this,'alta','C')">Alta</button></div>
+      <div id="list-ofC" class="tklist"></div>
+    </div>
+
+    <!-- DETALLE -->
+    <div class="screen" id="s-detalle">
+      <div class="ph-row"><button class="back" onclick="back()"><i class="ti ti-arrow-left"></i></button><div><div class="pt" style="font-size:18px;">Detalle del ticket</div></div></div>
+      <div style="padding:0 16px 16px;">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:4px;" id="det-num">—</div>
+        <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:10px;line-height:1.4;" id="det-titulo">—</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;"><span class="badge" id="det-badge">—</span><span style="font-size:12px;color:var(--text2);" id="det-estado">—</span></div>
+        <div class="dcard">
+          <div class="drow"><span class="dlbl"><i class="ti ti-calendar"></i>Creación</span><span class="dval" id="det-fecha">—</span></div>
+          <div class="drow"><span class="dlbl"><i class="ti ti-user"></i>Solicitante</span><span class="dval" id="det-cliente">—</span></div>
+          <div class="drow"><span class="dlbl"><i class="ti ti-user-check"></i>Asignado a</span><span class="dval" id="det-asignado">—</span></div>
+          <div class="drow"><span class="dlbl"><i class="ti ti-building"></i>Institución</span><span class="dval" id="det-inst">—</span></div>
+          <div class="drow"><span class="dlbl"><i class="ti ti-map-pin"></i>Lugar</span><span class="dval" id="det-lugar">—</span></div>
+          <div class="drow"><span class="dlbl"><i class="ti ti-tag"></i>Categoría</span><span class="dval" id="det-cat">—</span></div>
+          <div class="drow"><span class="dlbl"><i class="ti ti-list"></i>Subcategoría</span><span class="dval" id="det-subcat">—</span></div>
+        </div>
+        <div class="ddesc">
+          <div class="ddesc-title">Descripción del evento</div>
+          <div id="det-desc">—</div>
+        </div>
+        <button class="bp" style="margin-bottom:10px;" onclick="cerrarTicket()"><i class="ti ti-check" style="margin-right:6px;"></i>Marcar como resuelto</button>
+        <button class="bs" style="width:100%;" onclick="reasignarDesdeDetalle()"><i class="ti ti-arrows-transfer-down" style="margin-right:6px;"></i>Reasignar ticket</button>
+      </div>
+    </div>
+
+    <!-- EN ESPERA -->
+    <div class="screen" id="s-espera">
+      <div class="ph"><div class="pt">En espera</div><div class="ps" id="espera-sub">Cargando...</div></div>
+      <div id="espera-list" class="tklist"></div>
+      <div class="abar">
+        <div class="auto-box" style="margin-bottom:8px;">
+          <div class="auto-lbl"><i class="ti ti-brain"></i>Automático con IA</div>
+          <button class="bp" onclick="startAnal('todos')" style="margin-bottom:7px;"><i class="ti ti-brain" style="margin-right:6px;"></i>Derivar todos</button>
+          <div class="brow">
+            <button class="bs" onclick="startAnal('sel')"><i class="ti ti-checks" style="margin-right:4px;"></i>Seleccionados</button>
+            <button class="bs" onclick="startAnal('menos')"><i class="ti ti-minus" style="margin-right:4px;"></i>Todos menos</button>
+          </div>
+        </div>
+        <button class="bmanual" onclick="abrirManual()"><i class="ti ti-hand-click"></i>Derivar manualmente</button>
+      </div>
+    </div>
+
+    <!-- ANALIZANDO -->
+    <div class="screen" id="s-anal">
+      <div class="ph"><div class="pt">Analizando</div><div class="ps">Claude está procesando...</div></div>
+      <div style="padding:16px;">
+        <div style="background:var(--surface);border-radius:var(--r);padding:16px;border:0.5px solid var(--border);margin-bottom:12px;">
+          <div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:12px;display:flex;align-items:center;gap:8px;"><i class="ti ti-brain" style="color:var(--blue);font-size:18px;"></i>Procesando con IA</div>
+          <div class="prog-bg"><div class="prog-fill" id="prog-fill"></div></div>
+          <div style="font-size:12px;color:var(--text3);" id="prog-status">Iniciando...</div>
+        </div>
+        <div id="anal-live"></div>
+      </div>
+    </div>
+
+    <!-- CONFIRMACION -->
+    <div class="screen" id="s-confirm">
+      <div class="ph-row"><button class="back" onclick="goTo('s-espera')"><i class="ti ti-arrow-left"></i></button><div><div class="pt" style="font-size:18px;">Confirmar</div><div class="ps" id="conf-sub">—</div></div></div>
+      <div class="clist" id="conf-list"></div>
+      <div style="padding:12px 16px;display:flex;flex-direction:column;gap:8px;">
+        <button class="bp" onclick="ejecutarAuto()"><i class="ti ti-send" style="margin-right:6px;"></i>Confirmar y derivar todos</button>
+        <button class="bs" style="width:100%;" onclick="goTo('s-espera')">Cancelar</button>
+      </div>
+    </div>
+
+    <!-- MANUAL -->
+    <div class="screen" id="s-manual">
+      <div class="ph-row"><button class="back" onclick="goTo('s-espera')"><i class="ti ti-arrow-left"></i></button><div><div class="pt" style="font-size:18px;">Derivar manualmente</div><div class="ps" id="manual-sub">—</div></div></div>
+      <div style="padding:0 16px 16px;">
+        <div class="tc-box" id="tc-box"><i class="ti ti-ticket"></i><span id="tc-txt">—</span></div>
+        <div class="mc">
+          <div class="mc-title">Propietario</div>
+          <div class="sf">
+            <div class="sgrid">
+              <div class="sopt" onclick="selOwner(this,67,'Elio Molina')">Elio Molina (A)</div>
+              <div class="sopt" onclick="selOwner(this,66,'Carlos Carranza')">Carlos Carranza (B)</div>
+              <div class="sopt" onclick="selOwner(this,68,'Fausto Casco')">Fausto Casco (C)</div>
+            </div>
+          </div>
+        </div>
+        <div class="mc">
+          <div class="mc-title">Prioridad</div>
+          <div class="sf">
+            <div class="sgrid">
+              <div class="sopt" onclick="selPrio(this,5,'chosen-vital')">🚨 Vital</div>
+              <div class="sopt" onclick="selPrio(this,2,'chosen-alta')">🔴 Alta</div>
+              <div class="sopt" onclick="selPrio(this,6,'chosen-media')">🟡 Media</div>
+              <div class="sopt" onclick="selPrio(this,7,'chosen-baja')">⚪ Baja</div>
+            </div>
+          </div>
+        </div>
+        <button class="bp" id="btn-manual" onclick="confirmarManual()" disabled><i class="ti ti-send" style="margin-right:6px;"></i>Confirmar derivación</button>
+      </div>
+    </div>
+
+    <!-- VENCIDOS -->
+    <div class="screen" id="s-vencidos">
+      <div class="ph-row"><button class="back" onclick="back()"><i class="ti ti-arrow-left"></i></button><div><div class="pt" style="font-size:18px;">Vencidos</div><div class="ps" id="venc-sub">—</div></div></div>
+      <div id="venc-list" class="tklist"></div>
+    </div>
+
+    <!-- DONE -->
+    <div class="screen" id="s-done">
+      <div class="done-wrap">
+        <div class="done-icon"><i class="ti ti-circle-check"></i></div>
+        <div style="font-size:20px;font-weight:700;margin-bottom:8px;" id="done-title">Completado</div>
+        <div style="font-size:14px;color:var(--text2);line-height:1.6;margin-bottom:32px;" id="done-sub">—</div>
+        <button class="bp" style="width:100%;" onclick="navTo('s-home','bn-home');cargarDatos();">Volver al inicio</button>
+      </div>
+    </div>
+
+    <!-- REPORTES -->
+    <div class="screen" id="s-reportes">
+      <div class="ph"><div class="pt">Reportes</div><div class="ps">Informe en PDF</div></div>
+      <div style="padding:0 16px 12px;">
+        <div style="font-size:12px;color:var(--text2);margin-bottom:8px;font-weight:600;">Período del reporte</div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+          <input type="number" value="30" min="1" max="365" style="width:80px;text-align:center;font-size:18px;font-weight:700;padding:10px;"/>
+          <span style="font-size:14px;color:var(--text2);">últimos días</span>
+        </div>
+      </div>
+      <div class="sl">Resumen actual</div>
+      <div class="rcard">
+        <div class="rrow"><span style="font-size:14px;color:var(--text2);">Total abiertos</span><span style="font-size:14px;font-weight:700;" id="rpt-total">—</span></div>
+        <div class="rrow"><span style="font-size:14px;color:var(--text2);">Nuevos</span><span style="font-size:14px;font-weight:700;color:var(--green);" id="rpt-new">—</span></div>
+        <div class="rrow"><span style="font-size:14px;color:var(--text2);">Elio Molina (A)</span><span style="font-size:14px;font-weight:700;" id="rpt-a">—</span></div>
+        <div class="rrow"><span style="font-size:14px;color:var(--text2);">Carlos Carranza (B)</span><span style="font-size:14px;font-weight:700;" id="rpt-b">—</span></div>
+        <div class="rrow"><span style="font-size:14px;color:var(--text2);">Fausto Casco (C)</span><span style="font-size:14px;font-weight:700;" id="rpt-c">—</span></div>
+      </div>
+      <div style="padding:16px;">
+        <button class="bp"><i class="ti ti-file-type-pdf" style="margin-right:8px;"></i>Generar PDF para compartir</button>
+      </div>
+    </div>
+
+    <!-- CONFIG -->
+    <div class="screen" id="s-config">
+      <div class="ph"><div class="pt">Configuración</div></div>
+      <div class="sl">Instrucciones para Claude</div>
+      <div class="csec">
+        <div class="csec-title">Contexto general</div>
+        <div class="cfield"><textarea rows="3" id="cfg-contexto" placeholder="Descripción de la empresa..."></textarea></div>
+      </div>
+      <div class="csec">
+        <div class="csec-title">Reglas de derivación</div>
+        <div class="cfield" id="rules-wrap">
+          <div class="rule-row"><input type="text" value="Edilicio, estructural, puertas, ventanas → Elio Molina (A)"/><button class="rdel" onclick="this.closest('.rule-row').remove()"><i class="ti ti-trash"></i></button></div>
+          <div class="rule-row"><input type="text" value="Sanitarios, grifería, tuberías, electrodomésticos → Carlos Carranza (B)"/><button class="rdel" onclick="this.closest('.rule-row').remove()"><i class="ti ti-trash"></i></button></div>
+          <div class="rule-row"><input type="text" value="Azoteas, techos, electricidad, trabajos tarde/menores → Fausto Casco (C)"/><button class="rdel" onclick="this.closest('.rule-row').remove()"><i class="ti ti-trash"></i></button></div>
+          <button class="add-rule" onclick="addRule()"><i class="ti ti-plus" style="margin-right:4px;"></i>Agregar regla</button>
+        </div>
+      </div>
+      <div class="sl" style="margin-top:4px;">Conexión</div>
+      <div class="csec">
+        <div class="csec-title">Servidor</div>
+        <div class="cfield">
+          <div class="clbl">URL del proxy</div>
+          <input type="text" id="cfg-url" value="https://gored-proxy.onrender.com"/>
+        </div>
+        <div class="cfield">
+          <div class="clbl">Token de acceso</div>
+          <input type="password" id="cfg-token" value="VsEhIeRS8p3oFIdq4XXePBe3RXLiLRBn2d9Ysrzuofw_tE1YPvCCQY8ywUQGwAvh"/>
+        </div>
+      </div>
+      <div style="padding:16px;">
+        <button class="bp" onclick="guardarConfig()"><i class="ti ti-check" style="margin-right:6px;"></i>Guardar y reconectar</button>
+        <div id="saved-msg" style="font-size:13px;color:var(--green);text-align:center;padding:8px;display:none;font-weight:600;">¡Guardado!</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <div class="bnav">
+    <button class="bn active" id="bn-home" onclick="navTo('s-home','bn-home')"><i class="ti ti-layout-dashboard"></i>Inicio</button>
+    <button class="bn" id="bn-espera" onclick="navTo('s-espera','bn-espera')"><i class="ti ti-clock"></i>En espera</button>
+    <button class="bn" id="bn-reportes" onclick="navTo('s-reportes','bn-reportes')"><i class="ti ti-file-analytics"></i>Reportes</button>
+    <button class="bn" id="bn-config" onclick="navTo('s-config','bn-config')"><i class="ti ti-settings"></i>Config</button>
+  </div>
+</div>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────
+let PROXY = 'https://gored-proxy.onrender.com';
+let TOKEN  = 'VsEhIeRS8p3oFIdq4XXePBe3RXLiLRBn2d9Ysrzuofw_tE1YPvCCQY8ywUQGwAvh';
+const MY_ID = 321; // Franco Bono
+
+const OFICIALES = {
+  A:{id:67,nombre:'Elio Molina',iniciales:'EA'},
+  B:{id:66,nombre:'Carlos Carranza',iniciales:'CC'},
+  C:{id:68,nombre:'Fausto Casco',iniciales:'FC'}
+};
+const PRIOS = {5:'Vital',2:'Alta',6:'Media',7:'Baja'};
+const PRIO_CLS = {5:'b-vital',2:'b-alta',6:'b-media',7:'b-baja'};
+const ESTADOS = {1:'Nuevo',2:'Abierto',3:'Pendiente',4:'Cerrado'};
+
+// ── STATE ───────────────────────────────────────────────
+let allTickets=[], allUsers={}, navHistory=[];
+let activeTicketId=null, activeTicket=null;
+let selectedOwnerId=null, selectedOwnerName=null, selectedPrioId=null;
+let manualTickets=[];
+
+// ── INIT ────────────────────────────────────────────────
+const hh=new Date();
+document.getElementById('hora').textContent=hh.getHours()+':'+(hh.getMinutes()<10?'0':'')+hh.getMinutes();
+document.getElementById('fecha').textContent=hh.toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long'});
+
+document.querySelectorAll('.bn').forEach(btn=>{
+  btn.addEventListener('touchstart',()=>btn.classList.add('press'),{passive:true});
+  btn.addEventListener('touchend',()=>setTimeout(()=>btn.classList.remove('press'),200),{passive:true});
+});
+
+// ── NAV ─────────────────────────────────────────────────
+function goTo(s){
+  navHistory.push(document.querySelector('.screen.active').id);
+  _show(s);
+  if(s==='s-of-A') renderOficial('A');
+  if(s==='s-of-B') renderOficial('B');
+  if(s==='s-of-C') renderOficial('C');
+  if(s==='s-vencidos') renderVencidos();
+}
+function back(){ if(navHistory.length) _show(navHistory.pop()); }
+function navTo(s,bid){
+  navHistory=[];
+  _show(s);
+  document.querySelectorAll('.bn').forEach(b=>b.classList.remove('active'));
+  document.getElementById(bid).classList.add('active');
+  if(s==='s-reportes') renderReportes();
+}
+function _show(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ── API ─────────────────────────────────────────────────
+async function apiGet(path){
+  const r=await fetch(PROXY+'/api/v1'+path,{
+    headers:{'Authorization':'Token token='+TOKEN,'Content-Type':'application/json'}
+  });
+  if(!r.ok) throw new Error('Error '+r.status);
+  return r.json();
+}
+async function apiPut(path,body){
+  const r=await fetch(PROXY+'/api/v1'+path,{
+    method:'PUT',
+    headers:{'Authorization':'Token token='+TOKEN,'Content-Type':'application/json'},
+    body:JSON.stringify(body)
+  });
+  if(!r.ok){
+    const txt=await r.text();
+    throw new Error('Error PUT '+r.status+': '+txt.substring(0,100));
+  }
+  return r.json();
+}
+
+// ── HELPERS ─────────────────────────────────────────────
+function showOverlay(t){document.getElementById('overlay-txt').textContent=t;document.getElementById('overlay').style.display='flex';}
+function hideOverlay(){document.getElementById('overlay').style.display='none';}
+function prioInfo(id){return{label:PRIOS[id]||'Media',cls:PRIO_CLS[id]||'b-media'};}
+function estadoStr(id){return ESTADOS[id]||'Estado '+id;}
+function fmtFecha(d){if(!d)return '—';return new Date(d).toLocaleDateString('es-AR',{day:'numeric',month:'short',year:'numeric'});}
+function isVencido(t){return t.escalation_at&&new Date(t.escalation_at)<new Date();}
+function ofName(id){for(const k in OFICIALES)if(OFICIALES[k].id===id)return OFICIALES[k].nombre;return id>1?'Agente '+id:'Sin asignar';}
+function userName(id){
+  const u=allUsers[id];
+  if(!u) return '—';
+  return ((u.firstname||'')+' '+(u.lastname||'')).trim()||u.email||'Usuario '+id;
+}
+
+// ── CARGAR DATOS ────────────────────────────────────────
+async function cargarDatos(){
+  showOverlay('Conectando con Zammad...');
+  const errEl=document.getElementById('error-home');
+  errEl.style.display='none';
+  try {
+    showOverlay('Cargando tickets...');
+    // Traer tickets asignados a mí (para derivar)
+    // Cargar mis tickets (owner_id:321, estado nuevo o abierto) via endpoint dedicado
+    const PROXY = (typeof CONFIG !== 'undefined' && CONFIG.proxyUrl) ? CONFIG.proxyUrl : 'https://gored-proxy.onrender.com';
+    const myResp = await fetch(PROXY + '/my_open_tickets');
+    const myTickets = await myResp.json();
+    allTickets = Array.isArray(myTickets) ? myTickets : [];
+
+    // Cargar usuarios únicos de los tickets
+    const userIds = new Set();
+    allTickets.forEach(t => {
+      if (t.owner_id) userIds.add(t.owner_id);
+      if (t.customer_id) userIds.add(t.customer_id);
+      if (t.created_by_id) userIds.add(t.created_by_id);
+    });
+    for (const uid of userIds) {
+      if (!allUsers[uid]) {
+        try {
+          allUsers[uid] = await apiGet('/users/' + uid);
+        } catch(e) {
+          console.warn('Error cargando usuario', uid);
+        }
+      }
+    }
+
+    // Cargar tickets de los oficiales via endpoint dedicado
+    showOverlay('Cargando tickets de oficiales...');
+    try {
+      const ofIds=[66,67,68];
+      for(const oid of ofIds){
+        const r=await fetch(PROXY+'/oficial_tickets/'+oid);
+        const otks=await r.json();
+        if(Array.isArray(otks)){
+          otks.forEach(t=>{
+            if(!allTickets.find(x=>x.id===t.id)) allTickets.push(t);
+          });
+        }
+      }
+    } catch(e){ console.warn('Error cargando oficiales',e); }
+
+    renderDashboard();
+    renderEspera();
+    renderReportes();
+    hideOverlay();
+  } catch(e){
+    hideOverlay();
+    errEl.style.display='block';
+    errEl.textContent='Error al conectar: '+e.message;
+    console.error(e);
+  }
+}
+
+// ── DASHBOARD ───────────────────────────────────────────
+function renderDashboard(){
+  // Tickets que YO tengo que derivar
+  const misTks=allTickets.filter(t=>t.owner_id===MY_ID);
+  // Vencidos del sector B (todos los vencidos)
+  const venc=allTickets.filter(t=>isVencido(t));
+
+  document.getElementById('cnt-espera').textContent=misTks.length;
+  document.getElementById('cnt-venc2').textContent=venc.length;
+
+  const cA=allTickets.filter(t=>t.owner_id===67).length;
+  const cB=allTickets.filter(t=>t.owner_id===66).length;
+  const cC=allTickets.filter(t=>t.owner_id===68).length;
+  document.getElementById('cnt-ofA').textContent=cA;
+  document.getElementById('cnt-ofB').textContent=cB;
+  document.getElementById('cnt-ofC').textContent=cC;
+  document.getElementById('lbl-ofA').textContent=cA+' ticket'+(cA!==1?'s':'');
+  document.getElementById('lbl-ofB').textContent=cB+' ticket'+(cB!==1?'s':'');
+  document.getElementById('lbl-ofC').textContent=cC+' ticket'+(cC!==1?'s':'');
+
+  // Alertas vencimiento
+  const wrap=document.getElementById('alert-wrap');
+  if(venc.length){
+    const top=venc.slice(0,3);
+    wrap.innerHTML=`<div class="sl"><i class="ti ti-alert-triangle" style="margin-right:4px;color:var(--amber);vertical-align:-2px;"></i>Vencimientos</div>
+    <div class="alert-box">
+      <div class="alert-hdr"><i class="ti ti-alarm" style="margin-right:6px;"></i>Requieren atención</div>
+      ${top.map(t=>`<div class="alert-row">
+        <span style="font-size:12px;font-weight:700;color:var(--amber);min-width:52px;">#${t.number||t.id}</span>
+        <span style="font-size:13px;color:var(--text);flex:1;">${(t.title||'').substring(0,28)}${(t.title||'').length>28?'…':''}</span>
+        <span style="font-size:11px;font-weight:600;color:var(--amber);">${fmtFecha(t.escalation_at)}</span>
+      </div>`).join('')}
+    </div>`;
+  } else { wrap.innerHTML=''; }
+}
+
+// ── ESPERA ──────────────────────────────────────────────
+
+async function viewTicket(ticketId){
+  const t = allTickets.find(x => x.id == ticketId);
+  if(!t) return;
+  
+  const {label, cls} = prioInfo(t.priority_id);
+  const stateNames = {1:'Nuevo', 2:'Abierto', 3:'Pendiente', 4:'Cerrado'};
+  
+  document.getElementById('det-num').textContent = '#' + (t.number || t.id);
+  document.getElementById('det-titulo').textContent = t.title || 'Sin título';
+  document.getElementById('det-badge').textContent = label;
+  document.getElementById('det-badge').className = 'badge ' + cls;
+  document.getElementById('det-estado').textContent = stateNames[t.state_id] || '—';
+  document.getElementById('det-fecha').textContent = fmtFecha(t.created_at);
+  
+  // Cliente
+  let cliente = allUsers[t.customer_id];
+  if(!cliente) {
+    try { cliente = await apiGet('/users/'+t.customer_id); allUsers[t.customer_id]=cliente; }
+    catch(e) { cliente = {}; }
+  }
+  document.getElementById('det-cliente').textContent = cliente.email || '—';
+  
+  // Asignado a
+  let owner = allUsers[t.owner_id];
+  if(!owner) {
+    try { owner = await apiGet('/users/'+t.owner_id); allUsers[t.owner_id]=owner; }
+    catch(e) { owner = {}; }
+  }
+  document.getElementById('det-asignado').textContent = (owner.firstname || '') + ' ' + (owner.lastname || '') || '—';
+  
+  // Institución
+  document.getElementById('det-inst').textContent = t.organization_name || '—';
+  
+  // Lugar/Facility
+  document.getElementById('det-lugar').textContent = (t.facility || t.code) || '—';
+  
+  // Categoría y Subcategoría
+  document.getElementById('det-cat').value = t.category || '';
+  document.getElementById('det-subcat').value = t.subcategory || '';
+  
+  // Descripción (primer artículo)
+  let desc = '—';
+  if(t.article_ids && t.article_ids.length > 0) {
+    try {
+      const article = await apiGet('/articles/' + t.article_ids[0]);
+      if(article.body) desc = article.body;
+    } catch(e) {
+      desc = 'No disponible';
+    }
+  }
+  const descEl = document.getElementById('det-desc');
+  if(descEl) descEl.textContent = desc;
+  
+  navTo('s-detalle', 'btn-detalle');
+}
+
+function renderEspera(){
+  const lista=allTickets.filter(t=>t.owner_id===MY_ID);
+  const sub=document.getElementById('espera-sub');
+  sub.textContent=lista.length+' ticket'+(lista.length!==1?'s':'')+' · tocá para seleccionar';
+  const cont=document.getElementById('espera-list');
+  cont.innerHTML='';
+  if(!lista.length){
+    cont.innerHTML='<div class="empty"><i class="ti ti-check"></i><p>¡Todo derivado por hoy!</p></div>';
+    return;
+  }
+  // Agrupar por institución (organization_name)
+  const grupos={};
+  lista.forEach(t=>{
+    const inst=t.organization_name||'Sin institución';
+    if(!grupos[inst]) grupos[inst]=[];
+    grupos[inst].push(t);
+  });
+  // Ordenar instituciones alfabéticamente
+  const nombres=Object.keys(grupos).sort();
+  nombres.forEach(inst=>{
+    const header=document.createElement('div');
+    header.className='inst-header';
+    header.style.cssText='font-weight:600;font-size:14px;color:#555;margin:14px 4px 8px;padding-bottom:4px;border-bottom:1px solid #e5e5e5;';
+    header.textContent=inst+' ('+grupos[inst].length+')';
+    cont.appendChild(header);
+    grupos[inst].forEach(t=>{
+      const {label,cls}=prioInfo(t.priority_id);
+      const el=document.createElement('div');
+      el.className='tk';
+      el.dataset.id=t.id;
+      el.dataset.title=t.title||'Sin título';
+      el.dataset.num=t.number||t.id;
+      el.innerHTML=`<div style="display:flex;gap:12px;align-items:flex-start;justify-content:space-between;">
+        <div style="display:flex;gap:12px;align-items:flex-start;flex:1;">
+          <div class="chk"><i class="ti ti-check"></i></div>
+          <div style="flex:1;">
+            <div class="tk-num">#${t.number||t.id}</div>
+            <div class="tk-title">${t.title||'Sin título'}</div>
+            <div style="font-size:12px;color:var(--text2);margin:4px 0;">Creado por: ${allUsers[t.created_by_id]?((allUsers[t.created_by_id].firstname||'')+' '+(allUsers[t.created_by_id].lastname||'')).trim():'—'}</div>
+            <div class="tk-bot"><span class="tk-meta">${fmtFecha(t.created_at)}</span></div>
+          </div>
+        </div>
+        <button onclick="viewTicket(${t.id});event.stopPropagation();" style="border:none;background:none;cursor:pointer;color:var(--blue);font-size:28px;padding:4px;flex-shrink:0;"><i class="ti ti-info-circle"></i></button>
+      </div>`;
+      el.onclick=()=>toggleTk(el);
+      cont.appendChild(el);
+    });
+  });
+  updateSelCount();
+}
+
+function toggleTk(el){
+  el.classList.toggle('sel');
+  updateSelCount();
+}
+function updateSelCount(){
+  const n=document.querySelectorAll('#espera-list .tk.sel').length;
+  const total=document.querySelectorAll('#espera-list .tk').length;
+  document.getElementById('espera-sub').textContent=n>0
+    ?n+' seleccionado'+(n>1?'s':'')+' de '+total
+    :total+' ticket'+(total!==1?'s':'')+' · tocá para seleccionar';
+}
+function getTks(mode){
+  const all=Array.from(document.querySelectorAll('#espera-list .tk'));
+  if(mode==='todos') return all;
+  if(mode==='sel') return all.filter(i=>i.classList.contains('sel'));
+  if(mode==='menos') return all.filter(i=>!i.classList.contains('sel'));
+  return all;
+}
+
+// ── OFICIAL LIST ─────────────────────────────────────────
+function renderOficial(key,filtro='todos'){
+  const of=OFICIALES[key];
+  const base=allTickets.filter(t=>t.owner_id===of.id);
+  let lista=base;
+  if(filtro==='new') lista=base.filter(t=>t.state_id===1);
+  if(filtro==='open') lista=base.filter(t=>t.state_id===2);
+  if(filtro==='vital') lista=base.filter(t=>t.priority_id===5);
+  if(filtro==='alta') lista=base.filter(t=>t.priority_id===2);
+  renderTkList('list-of'+key,lista);
+}
+function filtrarOf(btn,filtro,key){
+  document.querySelectorAll('#s-of-'+key+' .fbtn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderOficial(key,filtro);
+}
+function renderTkList(cid,lista){
+  const c=document.getElementById(cid);
+  c.innerHTML='';
+  if(!lista.length){c.innerHTML='<div class="empty"><i class="ti ti-inbox"></i><p>Sin tickets.</p></div>';return;}
+  lista.forEach(t=>{
+    const {label,cls}=prioInfo(t.priority_id);
+    const el=document.createElement('div');
+    el.className='tk';
+    el.innerHTML=`<div class="tk-top"><div style="flex:1;"><div class="tk-num">#${t.number||t.id}</div><div class="tk-title">${t.title||'Sin título'}</div></div><span class="badge ${cls}">${label}</span></div>
+      <div class="tk-bot"><span class="tk-meta">${fmtFecha(t.created_at)}</span><span style="font-size:12px;color:var(--text2);">${estadoStr(t.state_id)}</span></div>`;
+    el.onclick=()=>abrirDetalle(t);
+    c.appendChild(el);
+  });
+}
+
+// ── VENCIDOS ─────────────────────────────────────────────
+function renderVencidos(){
+  const lista=allTickets.filter(t=>isVencido(t));
+  document.getElementById('venc-sub').textContent=lista.length+' requieren atención';
+  const c=document.getElementById('venc-list');
+  c.innerHTML='';
+  if(!lista.length){c.innerHTML='<div class="empty"><i class="ti ti-check"></i><p>¡Sin vencidos!</p></div>';return;}
+  lista.forEach(t=>{
+    const {label,cls}=prioInfo(t.priority_id);
+    const el=document.createElement('div');
+    el.className='tk';
+    el.style.cssText='border-color:rgba(163,45,45,0.3);background:var(--red-bg);';
+    el.innerHTML=`<div class="tk-top"><div style="flex:1;"><div class="tk-num" style="color:var(--red);">#${t.number||t.id}</div><div class="tk-title" style="color:var(--red);">${t.title||'Sin título'}</div></div><span class="badge ${cls}">${label}</span></div>
+      <div class="tk-bot"><span class="tk-meta" style="color:var(--red);">Venció ${fmtFecha(t.escalation_at)}</span><i class="ti ti-chevron-right" style="font-size:13px;color:var(--red);"></i></div>`;
+    el.onclick=()=>abrirDetalle(t);
+    c.appendChild(el);
+  });
+}
+
+// ── DETALLE ──────────────────────────────────────────────
+async function abrirDetalle(t){
+  activeTicketId=t.id;
+  activeTicket=t;
+  const {label,cls}=prioInfo(t.priority_id);
+  document.getElementById('det-num').textContent='#'+(t.number||t.id);
+  document.getElementById('det-titulo').textContent=t.title||'Sin título';
+  const b=document.getElementById('det-badge');b.className='badge '+cls;b.textContent=label;
+  document.getElementById('det-estado').textContent=estadoStr(t.state_id);
+  document.getElementById('det-fecha').textContent=fmtFecha(t.created_at);
+  document.getElementById('det-asignado').textContent=ofName(t.owner_id);
+
+  // Nombre del cliente
+  let clienteNombre='—';
+  if(t.customer_id){
+    if(allUsers[t.customer_id]){
+      clienteNombre=userName(t.customer_id);
+    } else {
+      try {
+        const u=await apiGet('/users/'+t.customer_id);
+        allUsers[u.id]=u;
+        clienteNombre=userName(u.id);
+      } catch(e){ clienteNombre='Cliente '+t.customer_id; }
+    }
+  }
+  document.getElementById('det-cliente').textContent=clienteNombre;
+
+  // Institución y lugar desde el título o campos custom
+  document.getElementById('det-inst').textContent=t.organization_id?'Org. '+t.organization_id:'—';
+  document.getElementById('det-lugar').textContent=t.facility||t.sector||'—';
+  document.getElementById('det-cat').textContent=t.category||'—';
+  document.getElementById('det-subcat').textContent=t.subcategory||'—';
+
+  // Descripción: cargar artículos del ticket
+  document.getElementById('det-desc').textContent='Cargando...';
+  try {
+    const arts=await apiGet('/ticket_articles?ticket_id='+t.id);
+    const lista=Array.isArray(arts)?arts:(arts.ticket_articles||[]);
+    // Primer artículo del cliente
+    const primer=lista.find(a=>a.sender_id===2||a.type_id===1||a.from)||lista[0];
+    if(primer&&primer.body){
+      // Limpiar HTML si lo tiene
+      const tmp=document.createElement('div');
+      tmp.innerHTML=primer.body;
+      document.getElementById('det-desc').textContent=tmp.textContent||tmp.innerText||primer.body;
+    } else {
+      document.getElementById('det-desc').textContent='Sin descripción disponible.';
+    }
+  } catch(e){
+    document.getElementById('det-desc').textContent='No se pudo cargar la descripción.';
+  }
+
+  goTo('s-detalle');
+}
+
+async function cerrarTicket(){
+  if(!activeTicketId) return;
+  showOverlay('Cerrando ticket...');
+  try {
+    await apiPut('/tickets/'+activeTicketId,{state_id:4});
+    allTickets=allTickets.filter(t=>t.id!==activeTicketId);
+    renderDashboard();renderEspera();
+    hideOverlay();back();
+  } catch(e){hideOverlay();alert('Error: '+e.message);}
+}
+
+function reasignarDesdeDetalle(){
+  if(!activeTicket) return;
+  manualTickets=[{dataset:{id:String(activeTicket.id),title:activeTicket.title||'Sin título',num:String(activeTicket.number||activeTicket.id)}}];
+  document.getElementById('manual-sub').textContent='1 ticket';
+  document.getElementById('tc-txt').textContent=activeTicket.title||'Sin título';
+  resetManual();
+  _show('s-manual');
+}
+
+// ── MANUAL ───────────────────────────────────────────────
+function abrirManual(){
+  const sel=Array.from(document.querySelectorAll('#espera-list .tk.sel'));
+  const todos=Array.from(document.querySelectorAll('#espera-list .tk'));
+  manualTickets=sel.length>0?sel:todos;
+  const n=manualTickets.length;
+  document.getElementById('manual-sub').textContent=n+' ticket'+(n!==1?'s':'');
+  document.getElementById('tc-txt').textContent=sel.length>0
+    ?'Aplicar a '+n+' ticket'+(n!==1?'s seleccionados':'')
+    :'Aplicar a todos los '+n+' tickets';
+  resetManual();
+  goTo('s-manual');
+}
+function resetManual(){
+  selectedOwnerId=null;selectedOwnerName=null;selectedPrioId=null;
+  document.querySelectorAll('.sopt').forEach(o=>o.className='sopt');
+  const btn=document.getElementById('btn-manual');
+  btn.disabled=true;btn.style.opacity='0.4';
+}
+function selOwner(el,id,name){
+  document.querySelectorAll('#s-manual .sopt').forEach(o=>{
+    if(['Elio Molina (A)','Carlos Carranza (B)','Fausto Casco (C)'].includes(o.textContent)) o.className='sopt';
+  });
+  el.classList.add('chosen');
+  selectedOwnerId=id;selectedOwnerName=name;
+  checkManualReady();
+}
+function selPrio(el,id,cls){
+  document.querySelectorAll('#s-manual .sopt').forEach(o=>o.classList.remove('chosen-vital','chosen-alta','chosen-media','chosen-baja'));
+  el.classList.add(cls);
+  selectedPrioId=id;
+  checkManualReady();
+}
+function checkManualReady(){
+  const ok=selectedOwnerId&&selectedPrioId;
+  const btn=document.getElementById('btn-manual');
+  btn.disabled=!ok;btn.style.opacity=ok?'1':'0.4';
+}
+
+async function confirmarManual(){
+  if(!selectedOwnerId||!selectedPrioId) return;
+  console.log('Derivando a owner_id:', selectedOwnerId, 'nombre:', selectedOwnerName);
+  showOverlay('Derivando en Zammad...');
+  let ok=0,err=0;
+  for(const tk of manualTickets){
+    const tid=tk.dataset?tk.dataset.id:tk.id;
+    try {
+      await apiPut('/tickets/'+tid,{owner_id:selectedOwnerId,priority_id:selectedPrioId,group_id:2});
+      ok++;
+    } catch(e){err++;console.error('Error ticket '+tid,e);}
+  }
+  // Recargar
+  try {
+    const data=await apiGet('/tickets/search?query=owner_id:'+MY_ID+' AND state_id:1 OR state_id:2&page=1&per_page=200&expand=true');
+    let tks=[];
+    if(Array.isArray(data)) tks=data;
+    else if(data.assets&&data.assets.Ticket) tks=Object.values(data.assets.Ticket);
+    else if(Array.isArray(data.tickets)) tks=data.tickets;
+    // Mantener tickets de oficiales
+    const ofTks=allTickets.filter(t=>[66,67,68].includes(t.owner_id));
+    const misTks=tks.filter(t=>t.state_id!==4);
+    allTickets=[...misTks,...ofTks.filter(t=>!misTks.find(x=>x.id===t.id))];
+    if(data.assets&&data.assets.User) Object.values(data.assets.User).forEach(u=>{allUsers[u.id]=u;});
+  } catch(e){console.warn(e);}
+  renderDashboard();renderEspera();
+  hideOverlay();
+  document.getElementById('done-title').textContent=ok+' ticket'+(ok!==1?'s derivados':'derivado');
+  document.getElementById('done-sub').textContent='Asignados a '+selectedOwnerName+(err>0?' · '+err+' con error':'');
+  navHistory=[];
+  _show('s-done');
+}
+
+// ── AUTO ─────────────────────────────────────────────────
+function startAnal(mode){
+  const tks=getTks(mode);
+  if(!tks.length){updateSelCount();return;}
+  navHistory.push('s-espera');
+  _show('s-anal');
+  runAnal(tks);
+}
+function runAnal(tks){
+  const fill=document.getElementById('prog-fill');
+  const status=document.getElementById('prog-status');
+  const live=document.getElementById('anal-live');
+  live.innerHTML='';
+  const dests=tks.map(t=>{
+    const title=(t.dataset.title||'').toLowerCase();
+    if(title.includes('techo')||title.includes('azotea')||title.includes('luz')||title.includes('timbre')||title.includes('electr')) return{nombre:'Fausto Casco',id:68};
+    if(title.includes('sanitario')||title.includes('baño')||title.includes('grifo')||title.includes('tuberia')||title.includes('agua')||title.includes('dispenser')) return{nombre:'Carlos Carranza',id:67};
+    return{nombre:'Elio Molina',id:66};
+  });
+  let i=0;
+  function next(){
+    if(i>=tks.length){setTimeout(()=>showConf(tks,dests),500);return;}
+    const pct=Math.round(((i+1)/tks.length)*100);
+    fill.style.width=pct+'%';
+    status.textContent='Analizando '+(i+1)+' de '+tks.length+'...';
+    const row=document.createElement('div');
+    row.className='anal-row';
+    row.innerHTML='<i class="ti ti-loader" style="color:var(--blue);font-size:16px;flex-shrink:0;"></i><span style="flex:1;">'+(tks[i].dataset.title||'Ticket')+'</span>';
+    live.appendChild(row);
+    setTimeout(()=>{
+      row.querySelector('i').className='ti ti-check';
+      row.querySelector('i').style.color='var(--green)';
+      i++;setTimeout(next,380);
+    },750);
+  }
+  next();
+}
+function showConf(tks,dests){
+  const list=document.getElementById('conf-list');
+  list.innerHTML='';
+  document.getElementById('conf-sub').textContent=tks.length+' tickets listos';
+  tks.forEach((t,idx)=>{
+    const dest=dests[idx];
+    const item=document.createElement('div');
+    item.className='ci';
+    item.dataset.id=t.dataset.id;
+    item.dataset.ownerId=dest.id;
+    item.innerHTML=`<div class="ci-num">#${t.dataset.num||t.dataset.id}</div>
+      <div class="ci-title">${t.dataset.title}</div>
+      <div class="ci-arr"><i class="ti ti-arrow-right" style="font-size:13px;color:var(--text3);"></i><span class="ci-dest">${dest.nombre}</span></div>`;
+    list.appendChild(item);
+  });
+  _show('s-confirm');
+}
+async function ejecutarAuto(){
+  const items=Array.from(document.querySelectorAll('#conf-list .ci'));
+  showOverlay('Derivando tickets...');
+  let ok=0,err=0;
+  for(const item of items){
+    try{
+      await apiPut('/tickets/'+item.dataset.id,{owner_id:parseInt(item.dataset.ownerId),priority_id:6,group_id:2});
+      ok++;
+    }catch(e){err++;console.error(e);}
+  }
+  try{
+    const data=await apiGet('/tickets/search?query=owner_id:'+MY_ID+' AND state_id:1 OR state_id:2&page=1&per_page=200&expand=true');
+    let tks=[];
+    if(Array.isArray(data)) tks=data;
+    else if(data.assets&&data.assets.Ticket) tks=Object.values(data.assets.Ticket);
+    else if(Array.isArray(data.tickets)) tks=data.tickets;
+    const ofTks=allTickets.filter(t=>[66,67,68].includes(t.owner_id));
+    const misTks=tks.filter(t=>t.state_id!==4);
+    allTickets=[...misTks,...ofTks.filter(t=>!misTks.find(x=>x.id===t.id))];
+  }catch(e){console.warn(e);}
+  renderDashboard();renderEspera();
+  hideOverlay();
+  document.getElementById('done-title').textContent=ok+' ticket'+(ok!==1?'s derivados':'derivado');
+  document.getElementById('done-sub').textContent='Asignados automáticamente.'+(err>0?' · '+err+' con error':'');
+  navHistory=[];_show('s-done');
+}
+
+// ── REPORTES ─────────────────────────────────────────────
+function renderReportes(){
+  document.getElementById('rpt-total').textContent=allTickets.length;
+  document.getElementById('rpt-new').textContent=allTickets.filter(t=>t.state_id===1).length;
+  document.getElementById('rpt-a').textContent=allTickets.filter(t=>t.owner_id===66).length;
+  document.getElementById('rpt-b').textContent=allTickets.filter(t=>t.owner_id===67).length;
+  document.getElementById('rpt-c').textContent=allTickets.filter(t=>t.owner_id===68).length;
+}
+
+// ── CONFIG ───────────────────────────────────────────────
+function guardarConfig(){
+  PROXY=document.getElementById('cfg-url').value.trim();
+  TOKEN=document.getElementById('cfg-token').value.trim();
+  const m=document.getElementById('saved-msg');
+  m.style.display='block';setTimeout(()=>m.style.display='none',2500);
+  cargarDatos();
+}
+function addRule(){
+  const wrap=document.getElementById('rules-wrap');
+  const btn=wrap.querySelector('.add-rule');
+  const row=document.createElement('div');
+  row.className='rule-row';
+  row.innerHTML='<input type="text" placeholder="Nueva regla..."/><button class="rdel" onclick="this.closest(\'.rule-row\').remove()"><i class="ti ti-trash"></i></button>';
+  wrap.insertBefore(row,btn);row.querySelector('input').focus();
+}
+
+window.addEventListener('load',cargarDatos);
+</script>
+</body>
+</html>
