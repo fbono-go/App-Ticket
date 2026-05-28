@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reporte de Mantenimiento — GOred</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel2:#1c2230; --line:#262d3a;
+    --txt:#e6edf3; --muted:#8b949e;
+    --A:#e0533d; --B:#f5a623; --C:#9b59f6; --D:#d4a017;
+    --green:#3fb950; --blue:#3b82f6; --orange:#f5a623; --red:#f85149;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    background:radial-gradient(1200px 600px at 10% -10%, rgba(224,83,61,0.08), transparent 60%),
+               radial-gradient(1000px 500px at 110% 10%, rgba(155,89,246,0.08), transparent 55%), var(--bg);
+    color:var(--txt); min-height:100vh; padding:24px 16px 60px;}
+  .wrap{max-width:1120px;margin:0 auto;}
+  .top{display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:20px;margin-bottom:24px;border-bottom:1px solid var(--line);opacity:0;animation:fadeDown .6s ease forwards;flex-wrap:wrap;gap:16px;}
+  .top h1{font-size:24px;font-weight:700;letter-spacing:-0.4px;}
+  .top .sub{color:var(--muted);font-size:13px;margin-top:4px;}
+  .topbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
+  .pill{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 16px;text-align:right;}
+  .pill .lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+  .pill .val{font-size:16px;font-weight:700;margin-top:2px;}
+  .btn{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 14px;color:var(--txt);font-size:12px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:6px;white-space:nowrap;}
+  .btn:hover{background:var(--panel2);border-color:var(--blue);}
+  .btn.primary{background:var(--blue);border-color:var(--blue);}
+  .btn.primary:hover{background:#4a95ff;}
+  .sectitle{font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);font-weight:600;margin:28px 4px 14px;}
+  .gauges{display:grid;grid-template-columns:repeat(4,1fr) 1.2fr;gap:14px;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;opacity:0;animation:fadeUp .6s ease forwards;}
+  .card .ctitle{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
+  .gauge-wrap{position:relative;height:140px;}
+  .gauge-val{position:absolute;left:0;right:0;top:58%;transform:translateY(-50%);text-align:center;font-size:34px;font-weight:800;}
+  .pies{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+  .pie-wrap{position:relative;height:200px;}
+  .ofgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+  .ofcard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;opacity:0;animation:fadeUp .6s ease forwards;}
+  .ofcard .ofname{font-size:13px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+  .ofcard .bignum{font-size:40px;font-weight:800;line-height:1;}
+  .ofcard .bignum span{font-size:14px;color:var(--muted);font-weight:600;margin-left:6px;}
+  .ofcard .stat{font-size:12px;color:var(--muted);margin:6px 0 16px;}
+  .ofcard .stat b{color:var(--txt);}
+  .franja{margin-bottom:12px;}
+  .franja .flabel{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;}
+  .franja .flabel .pct{color:var(--muted);}
+  .bar{height:7px;border-radius:4px;background:var(--panel2);overflow:hidden;}
+  .bar > i{display:block;height:100%;border-radius:4px;width:0;transition:width 1.1s cubic-bezier(.2,.7,.3,1);}
+  .tablecard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px 4px;overflow-x:auto;opacity:0;animation:fadeUp .6s ease forwards;}
+  table{width:100%;border-collapse:collapse;min-width:680px;}
+  th,td{padding:13px 16px;text-align:left;font-size:13px;border-bottom:1px solid var(--line);}
+  th{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
+  tr:last-child td{border-bottom:none;}
+  .tag{padding:2px 9px;border-radius:10px;font-size:11px;font-weight:700;}
+  .tag.hi{background:rgba(248,81,73,0.15);color:var(--red);}
+  .tag.mid{background:rgba(245,166,35,0.15);color:var(--orange);}
+  .tag.lo{background:rgba(63,185,80,0.15);color:var(--green);}
+  .foot{margin-top:30px;text-align:center;color:var(--muted);font-size:12px;}
+  .loader{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1000;gap:16px;}
+  .spin{width:42px;height:42px;border:3px solid var(--line);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite;}
+  .error{background:rgba(248,81,73,0.1);border:1px solid var(--red);color:var(--red);padding:20px;border-radius:12px;margin:40px auto;max-width:500px;text-align:center;}
+  .toast{position:fixed;bottom:20px;right:20px;background:var(--green);color:#000;padding:12px 18px;border-radius:8px;font-size:12px;opacity:0;animation:slideIn .3s ease forwards;z-index:999;font-weight:600;}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
+  @keyframes fadeDown{from{opacity:0;transform:translateY(-10px);}to{opacity:1;transform:translateY(0);}}
+  @keyframes slideIn{from{opacity:0;transform:translateX(20px);}to{opacity:1;transform:translateX(0);}}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  @media(max-width:900px){.gauges{grid-template-columns:repeat(2,1fr);}.pies{grid-template-columns:1fr;}.ofgrid{grid-template-columns:1fr;}.top{flex-direction:column;align-items:flex-start;}.topbar{width:100%;}.btn{flex:1;justify-content:center;}}
+</style>
+</head>
+<body>
+<div id="loader" class="loader"><div class="spin"></div><div style="color:var(--muted);font-size:13px;">Generando reporte...</div></div>
+<div id="errorBox" style="display:none;" class="error">No se pudieron cargar los datos del reporte. <br>Reintentá en unos segundos.</div>
+<div id="content" class="wrap" style="display:none;">
+  <div class="top">
+    <div><h1>Reporte de Mantenimiento</h1><div class="sub">Grupo Oroño · Gestión de tickets edilicios</div></div>
+    <div class="topbar">
+      <div class="pill"><div class="lbl">Período</div><div class="val" id="periodoLabel">—</div></div>
+      <button class="btn primary" onclick="descargarPDF()">📥 Descargar PDF</button>
+      <button class="btn" onclick="copiarLink()">🔗 Compartir</button>
+    </div>
+  </div>
+
+  <div class="sectitle">Tickets totales por oficial</div>
+  <div class="gauges">
+    <div class="card" style="animation-delay:.05s"><div class="ctitle">Total GOred</div><div class="gauge-wrap"><canvas id="gg0"></canvas><div class="gauge-val" id="ggv0" style="color:var(--green)">—</div></div></div>
+    <div class="card" style="animation-delay:.1s"><div class="ctitle">Carlos Carranza</div><div class="gauge-wrap"><canvas id="gg1"></canvas><div class="gauge-val" id="ggv1" style="color:var(--orange)">—</div></div></div>
+    <div class="card" style="animation-delay:.15s"><div class="ctitle">Fausto Casco</div><div class="gauge-wrap"><canvas id="gg2"></canvas><div class="gauge-val" id="ggv2" style="color:var(--green)">—</div></div></div>
+    <div class="card" style="animation-delay:.2s"><div class="ctitle">Elio Molina</div><div class="gauge-wrap"><canvas id="gg3"></canvas><div class="gauge-val" id="ggv3" style="color:var(--green)">—</div></div></div>
+    <div class="card" style="animation-delay:.25s"><div class="ctitle">Prioridades por sector</div><div class="gauge-wrap" style="height:140px"><canvas id="prioBar"></canvas></div></div>
+  </div>
+
+  <div class="sectitle">Distribución de tickets</div>
+  <div class="pies">
+    <div class="card" style="animation-delay:.3s"><div class="ctitle">Abiertos vs Nuevos</div><div class="pie-wrap"><canvas id="p1"></canvas></div></div>
+    <div class="card" style="animation-delay:.35s"><div class="ctitle">Vencidos vs En tiempo</div><div class="pie-wrap"><canvas id="p2"></canvas></div></div>
+    <div class="card" style="animation-delay:.4s"><div class="ctitle">Por centro de costo (top)</div><div class="pie-wrap"><canvas id="p4"></canvas></div></div>
+  </div>
+
+  <div class="sectitle">Tiempo de resolución por oficial (cerrados del período)</div>
+  <div class="ofgrid" id="ofgrid"></div>
+
+  <div class="sectitle">Evolución de tickets cerrados</div>
+  <div class="card" style="animation-delay:.7s;padding:20px;"><div class="pie-wrap" style="height:240px"><canvas id="ev1"></canvas></div></div>
+  <div class="sectitle">Evolución del tiempo de cierre (hs)</div>
+  <div class="card" style="animation-delay:.72s;padding:20px;"><div class="pie-wrap" style="height:240px"><canvas id="ev2"></canvas></div></div>
+  <div class="sectitle">Tiempo de cierre por prioridad y oficial (hs)</div>
+  <div class="card" style="animation-delay:.74s;padding:20px;"><div class="pie-wrap" style="height:240px"><canvas id="ev3"></canvas></div></div>
+
+  <div class="sectitle">Tabla resumen</div>
+  <div class="tablecard" style="animation-delay:.76s">
+    <table>
+      <thead><tr><th>Oficial</th><th>Total</th><th>0–6 hs</th><th>6–24 hs</th><th>24–72 hs</th><th>+72 hs</th><th>Prom. hs</th><th>Mediana</th><th>% Alta compl.</th></tr></thead>
+      <tbody id="tablaBody"></tbody>
+    </table>
+  </div>
+
+  <div class="foot" id="footTxt">Generado automáticamente · Area 51</div>
+</div>
+
+<div id="toast" class="toast" style="display:none;"></div>
+
+<script>
+const PROXY = 'https://gored-proxy.onrender.com';
+const COL = { A:'#e0533d', B:'#f5a623', C:'#9b59f6', D:'#d4a017', green:'#3fb950', blue:'#3b82f6', orange:'#f5a623', red:'#f85149', grey:'#30363d' };
+Chart.defaults.font.family = 'Segoe UI, system-ui, sans-serif';
+Chart.defaults.color = '#8b949e';
+
+// Leer parámetros URL
+const urlParams = new URLSearchParams(window.location.search);
+const days = parseInt(urlParams.get('days') || '30');
+
+// FETCH datos del proxy
+fetch(`${PROXY}/api/reporte?days=${days}`)
+  .then(r => r.json())
+  .then(data => { renderReporte(data); })
+  .catch(e => {
+    console.error(e);
+    document.getElementById('loader').style.display = 'none';
+    document.getElementById('errorBox').style.display = 'block';
+  });
+
+function fmtFecha(d){ return new Intl.DateTimeFormat('es-AR',{day:'numeric',month:'short',year:'numeric'}).format(d); }
+
+function renderReporte(data){
+  document.getElementById('loader').style.display = 'none';
+  document.getElementById('content').style.display = 'block';
+
+  // Período
+  const hasta = new Date();
+  const desde = new Date(Date.now() - data.periodo_dias*24*3600*1000);
+  document.getElementById('periodoLabel').textContent = `Últimos ${data.periodo_dias} días`;
+  document.getElementById('footTxt').textContent = `Generado ${fmtFecha(hasta)} · Período: ${fmtFecha(desde)} — ${fmtFecha(hasta)} · Area 51`;
+
+  // GAUGES (abiertos actuales)
+  const g = data.gauges;
+  setGauge('gg0','ggv0', g.total, Math.max(g.total*1.3, 200), COL.green);
+  setGauge('gg1','ggv1', g.Carlos, Math.max(g.Carlos*1.5, 30), COL.orange);
+  setGauge('gg2','ggv2', g.Fausto, Math.max(g.Fausto*1.5, 30), COL.green);
+  setGauge('gg3','ggv3', g.Elio,   Math.max(g.Elio*1.5, 30),   COL.green);
+
+  // PRIORIDADES por sector
+  const p = data.prioridades;
+  new Chart(document.getElementById('prioBar'), {type:'bar',
+    data:{labels:['Baja','Media','Alta','Vital'], datasets:[{data:[p.Baja, p.Media, p.Alta, p.Vital], backgroundColor:[COL.blue,COL.green,COL.orange,COL.red]}]},
+    options:{plugins:{legend:{display:false}}, scales:{y:{type:'logarithmic'}}, animation:{duration:1100}}});
+
+  // PIES
+  const r = data.resumen;
+  pie('p1',['En curso','Nuevos'],[r.enCurso, r.nuevos],['#8a5a2b','#c9883f']);
+  pie('p2',['En tiempo','Vencidos'],[r.enTiempo, r.vencidos],['#8a5a2b','#a32d2d']);
+  // Top facilities
+  const FAC = {12:'Sanatorio Parque',13:'ICR',14:'Diagnóstico Oroño',15:'Sanatorio de Niños',33:'Grupo Oroño',84:'GO Funes',104:'GO San Nicolás',106:'Villavicencio',132:'M. Esencial',138:'GO Gastro'};
+  const facEntries = Object.entries(data.por_facility).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  pie('p4', facEntries.map(([k])=>FAC[k]||('F.'+k)), facEntries.map(([,v])=>v), ['#8a5a2b','#c9883f','#e0a96d','#6b7177','#3b82f6']);
+
+  // TARJETAS POR OFICIAL
+  const ofgrid = document.getElementById('ofgrid');
+  ofgrid.innerHTML = '';
+  data.oficiales.forEach((of, i) => {
+    const card = document.createElement('div');
+    card.className = 'ofcard';
+    card.style.animationDelay = (0.55 + i*0.05) + 's';
+    card.innerHTML = `
+      <div class="ofname"><span style="width:9px;height:9px;border-radius:50%;background:${of.color}"></span>${of.name}</div>
+      <div class="bignum">${of.total}<span>tickets</span></div>
+      <div class="stat">Promedio: <b>${of.promedio_hs} hs</b> · Mediana: <b>${of.mediana_hs} hs</b></div>
+      ${['0–6 hs','6–24 hs','24–72 hs','+72 hs'].map((lbl,j)=>{
+        const colors=[COL.green,COL.blue,COL.orange,COL.red];
+        return `<div class="franja"><div class="flabel"><span>${lbl}</span><span class="pct">${of.franjas[j]} (${of.franjas_pct[j]}%)</span></div><div class="bar"><i style="background:${colors[j]}" data-w="${of.franjas_pct[j]}"></i></div></div>`;
+      }).join('')}
+    `;
+    ofgrid.appendChild(card);
+  });
+
+  // EVOLUCIÓN gráficos 1, 2 y 3
+  const sem = data.evolucion_semanas;
+  const lineOpts = (yT)=>({responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}}},scales:{y:{beginAtZero:true,title:{display:true,text:yT}}}, animation:{duration:1200}});
+  new Chart(document.getElementById('ev1'), {type:'line', data:{labels:sem, datasets:data.evolucion.map(o=>({label:o.name.split(' ')[0],data:o.cerrados,borderColor:o.color,backgroundColor:o.color,tension:.35}))}, options:lineOpts('Tickets cerrados')});
+  new Chart(document.getElementById('ev2'), {type:'line', data:{labels:sem, datasets:data.evolucion.map(o=>({label:o.name.split(' ')[0],data:o.tiempo_hs,borderColor:o.color,backgroundColor:o.color,tension:.35}))}, options:lineOpts('Horas promedio')});
+  new Chart(document.getElementById('ev3'), {type:'bar', data:{labels:['Vital','Alta','Media','Baja'], datasets:data.tiempo_por_prioridad.map(o=>({label:o.name.split(' ')[0],data:[o.Vital,o.Alta,o.Media,o.Baja],backgroundColor:o.color}))}, options:lineOpts('Horas promedio de cierre')});
+
+  // TABLA RESUMEN
+  const tbody = document.getElementById('tablaBody');
+  tbody.innerHTML = '';
+  data.oficiales.forEach(of => {
+    const tag = of.pct_alta_compl >= 25 ? 'hi' : (of.pct_alta_compl >= 15 ? 'mid' : 'lo');
+    tbody.innerHTML += `<tr>
+      <td><b>${of.name}</b></td>
+      <td>${of.total}</td>
+      <td>${of.franjas[0]} (${of.franjas_pct[0]}%)</td>
+      <td>${of.franjas[1]} (${of.franjas_pct[1]}%)</td>
+      <td>${of.franjas[2]} (${of.franjas_pct[2]}%)</td>
+      <td>${of.franjas[3]} (${of.franjas_pct[3]}%)</td>
+      <td><b>${of.promedio_hs} hs</b></td>
+      <td>${of.mediana_hs} hs</td>
+      <td><span class="tag ${tag}">${of.pct_alta_compl}%</span></td>
+    </tr>`;
+  });
+
+  // Animar barras de franjas
+  setTimeout(()=>{ document.querySelectorAll('.bar > i').forEach(b=>{ b.style.width = b.dataset.w + '%'; }); }, 400);
+}
+
+function setGauge(canvasId, valId, val, max, color){
+  document.getElementById(valId).textContent = val;
+  new Chart(document.getElementById(canvasId), {type:'doughnut',
+    data:{datasets:[{data:[val, Math.max(max-val,0)], backgroundColor:[color, COL.grey], borderWidth:0}]},
+    options:{rotation:-135, circumference:270, cutout:'72%', plugins:{legend:{display:false}, tooltip:{enabled:false}}, animation:{animateRotate:true, duration:1200, easing:'easeOutQuart'}}});
+}
+function pie(id, labels, data, colors){
+  new Chart(document.getElementById(id), {type:'doughnut',
+    data:{labels, datasets:[{data, backgroundColor:colors, borderColor:'#161b22', borderWidth:2}]},
+    options:{cutout:'55%', plugins:{legend:{position:'bottom', labels:{boxWidth:10,padding:10,font:{size:11}}}}, animation:{animateRotate:true, duration:1000}}});
+}
+
+function descargarPDF(){
+  const el = document.getElementById('content');
+  const opt = {margin:8, filename:`Reporte-Mantenimiento-${days}d.pdf`, image:{type:'jpeg', quality:0.96}, html2canvas:{scale:2, backgroundColor:'#0e1116'}, jsPDF:{orientation:'portrait', unit:'mm', format:'a4'}};
+  html2pdf().set(opt).from(el).save();
+  toast('📄 Descargando PDF...');
+}
+function copiarLink(){
+  navigator.clipboard.writeText(window.location.href).then(()=>toast('🔗 Link copiado'));
+}
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.display='block'; t.style.animation='none';
+  setTimeout(()=>{ t.style.animation='slideIn .3s ease forwards'; }, 10);
+  setTimeout(()=>{ t.style.display='none'; }, 3000);
+}
+</script>
+</body>
+</html>
