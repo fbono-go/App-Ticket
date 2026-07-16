@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Test Google OAuth — GoRed</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  body{font-family:system-ui,sans-serif;max-width:560px;margin:24px auto;padding:0 16px;background:#111;color:#eee;}
+  h1{font-size:20px;}
+  .box{background:#1c1c1e;border:1px solid #333;border-radius:12px;padding:14px;margin:12px 0;}
+  .lbl{font-size:12px;color:#999;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;}
+  .val{font-family:monospace;font-size:13px;word-break:break-all;}
+  .ok{color:#4ade80;} .err{color:#f87171;} .warn{color:#fbbf24;}
+  button{width:100%;padding:14px;font-size:16px;font-weight:600;border:0;border-radius:10px;background:#2563eb;color:#fff;margin-top:8px;}
+  button:disabled{opacity:.5;}
+  #resultado{white-space:pre-wrap;font-family:monospace;font-size:13px;}
+</style>
+</head>
+<body>
+<h1>🔧 Test de credencial Google OAuth</h1>
+<p style="color:#999;font-size:14px;">Esta página prueba SOLO la credencial, aislada de la app. Pegá tu Client ID abajo y tocá Probar.</p>
+
+<div class="box">
+  <div class="lbl">1 · Pegá tu Client ID acá</div>
+  <input id="cid" type="text" placeholder="123456789012-xxxxxxxx.apps.googleusercontent.com"
+    style="width:100%;box-sizing:border-box;padding:10px;border-radius:8px;border:1px solid #444;background:#0d0d0f;color:#eee;font-family:monospace;font-size:12px;">
+</div>
+
+<div class="box">
+  <div class="lbl">2 · Origen de esta página (debe estar autorizado en Google Cloud)</div>
+  <div class="val" id="origen"></div>
+</div>
+
+<button id="btn" onclick="probar()">Probar credencial</button>
+
+<div class="box" style="display:none;" id="rbox">
+  <div class="lbl">Resultado</div>
+  <div id="resultado"></div>
+</div>
+
+<script>
+document.getElementById('origen').textContent = window.location.origin;
+
+function log(txt, clase){
+  const box = document.getElementById('rbox');
+  const r = document.getElementById('resultado');
+  box.style.display = 'block';
+  r.innerHTML += '<div class="' + (clase||'') + '">' + txt + '</div>';
+}
+
+function probar(){
+  document.getElementById('resultado').innerHTML = '';
+  const cid = document.getElementById('cid').value.trim();
+
+  // ── Chequeos previos, sin llamar a Google ──
+  if(!cid){ log('✗ Pegá el Client ID en el campo de arriba.', 'err'); return; }
+  if(cid.includes('TU_CLIENT_ID') || cid.startsWith('284739105827-a1b2c3d4e5f6')){
+    log('✗ Ese es un valor de EJEMPLO, no una credencial real.', 'err');
+    log('El Client ID real lo genera Google en TU consola:', 'warn');
+    log('console.cloud.google.com → APIs y servicios → Credenciales', 'warn');
+    return;
+  }
+  if(!/^\d{10,14}-[a-z0-9]+\.apps\.googleusercontent\.com$/.test(cid)){
+    log('⚠ El formato no parece un Client ID típico (números-letras.apps.googleusercontent.com). Probando igual...', 'warn');
+  }
+  if(typeof google === 'undefined' || !google.accounts){
+    log('✗ El script de Google (gsi/client) no cargó. ¿Hay internet? ¿Bloqueador de scripts?', 'err');
+    return;
+  }
+
+  log('→ Enviando a Google con client_id: ' + cid.slice(0,20) + '...');
+  document.getElementById('btn').disabled = true;
+
+  try {
+    const client = google.accounts.oauth2.initTokenClient({
+      client_id: cid,
+      scope: 'https://www.googleapis.com/auth/tasks',
+      callback: (resp) => {
+        document.getElementById('btn').disabled = false;
+        if(resp.error){
+          log('✗ Google respondió error: ' + resp.error, 'err');
+          if(resp.error_description) log('  ' + resp.error_description, 'err');
+          return;
+        }
+        log('✓ ¡CREDENCIAL VÁLIDA! Google emitió un token.', 'ok');
+        log('✓ El Client ID funciona. Copialo tal cual a la línea 893 de index-beta.html.', 'ok');
+      },
+      error_callback: (err) => {
+        document.getElementById('btn').disabled = false;
+        if(err && err.type === 'popup_closed'){
+          log('⚠ Cerraste el popup antes de terminar. Volvé a probar.', 'warn');
+        } else if(err && err.type === 'popup_failed_to_open'){
+          log('✗ El navegador bloqueó el popup. Permitir popups para este sitio y reintentar.', 'err');
+        } else {
+          log('✗ Fallo del popup: ' + JSON.stringify(err), 'err');
+        }
+      }
+    });
+    client.requestAccessToken({ prompt: 'select_account' });
+  } catch(e){
+    document.getElementById('btn').disabled = false;
+    log('✗ Excepción: ' + e.message, 'err');
+  }
+}
+</script>
+</body>
+</html>
