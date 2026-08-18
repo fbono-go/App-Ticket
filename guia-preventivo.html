@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Preventivo QR · Guía del técnico</title>
+<style>
+/* ═══════════════════════════════════════════════════════════════════
+   Paleta: chapa de datos de equipo de climatización.
+   Serigrafía oscura sobre metal claro, azul de marca, ámbar de panel.
+   ═══════════════════════════════════════════════════════════════════ */
+:root{
+  --tinta:#10161D;
+  --tinta2:#48545F;
+  --tinta3:#8593A0;
+  --papel:#E9EDF1;
+  --chapa:#FFFFFF;
+  --azul:#0060D6;
+  --azul-pal:#DCE8FA;
+  --ambar:#B8791A;
+  --ambar-pal:#FDF2DC;
+  --rojo:#C0372B;
+  --rojo-pal:#FBE6E3;
+  --verde:#166F45;
+  --verde-pal:#E0F1E8;
+  --linea:#C3CDD6;
+  --mono:ui-monospace,'SF Mono',SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace;
+  --sans:system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
+}
+*{box-sizing:border-box;}
+html{-webkit-text-size-adjust:100%;}
+body{
+  margin:0;background:var(--papel);color:var(--tinta);font-family:var(--sans);
+  font-size:16px;line-height:1.6;
+  background-image:linear-gradient(rgba(0,0,0,.022) 1px,transparent 1px);
+  background-size:100% 3px;
+}
+.env{max-width:1080px;margin:0 auto;padding:0 20px 90px;}
+
+/* ── encabezado: placa de datos ────────────────────────────────────── */
+.placa{
+  background:var(--tinta);color:var(--chapa);margin:0 0 44px;padding:38px 20px 30px;
+  border-bottom:5px solid var(--azul);
+}
+.placa-in{max-width:1040px;margin:0 auto;}
+.marca{
+  font-family:var(--mono);font-size:11px;letter-spacing:.24em;text-transform:uppercase;
+  color:#7FA9E8;margin-bottom:16px;
+}
+h1{
+  font-size:clamp(30px,7.4vw,54px);line-height:.98;margin:0 0 14px;
+  font-weight:800;letter-spacing:-.035em;
+}
+h1 em{font-style:normal;color:#7FA9E8;}
+.bajada{font-size:16px;color:#B4C2CE;max-width:52ch;margin:0;}
+.datos{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));
+  gap:1px;background:#2A3540;margin-top:28px;
+}
+.dato{background:#18202A;padding:11px 13px;}
+.dato dt{
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;
+  color:#748493;margin:0 0 4px;
+}
+.dato dd{margin:0;font-size:14px;font-weight:600;}
+
+/* ── bloques ───────────────────────────────────────────────────────── */
+.rotulo{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--tinta3);border-bottom:1px solid var(--linea);padding-bottom:7px;margin:58px 0 26px;
+}
+h2{font-size:clamp(21px,4vw,27px);letter-spacing:-.02em;margin:0 0 10px;line-height:1.15;}
+h3{font-size:17px;margin:0 0 6px;letter-spacing:-.01em;}
+p{margin:0 0 12px;}
+.chico{font-size:14.5px;color:var(--tinta2);}
+
+/* ── paso: número grande + texto + teléfono ────────────────────────── */
+.paso{
+  display:grid;grid-template-columns:64px 1fr 268px;gap:26px;align-items:start;
+  padding:30px 0;border-top:1px solid var(--linea);
+}
+.paso:first-of-type{border-top:0;}
+.num{
+  font-family:var(--mono);font-size:38px;font-weight:700;line-height:.8;
+  color:var(--linea);letter-spacing:-.05em;padding-top:4px;
+}
+.paso-txt > *:last-child{margin-bottom:0;}
+.paso.solo{grid-template-columns:64px 1fr;}
+
+/* ── teléfono simulado ─────────────────────────────────────────────── */
+.tel{
+  width:268px;background:var(--tinta);border-radius:26px;padding:9px;
+  box-shadow:0 12px 30px rgba(16,22,29,.2);justify-self:end;
+}
+.tel-in{
+  background:var(--papel);border-radius:19px;overflow:hidden;min-height:352px;
+  display:flex;flex-direction:column;position:relative;
+}
+.tel-barra{
+  background:var(--chapa);border-bottom:1px solid var(--linea);padding:8px 12px;
+  font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--tinta3);display:flex;justify-content:space-between;
+}
+.tel-cuerpo{padding:12px;flex:1;font-size:12.5px;}
+.tel-nav{
+  display:grid;grid-template-columns:1fr 1fr 1fr;background:var(--chapa);
+  border-top:1px solid var(--linea);
+}
+.tel-nav span{
+  padding:8px 2px;text-align:center;font-size:8.5px;color:var(--tinta3);
+  font-weight:600;letter-spacing:.02em;
+}
+.tel-nav span.on{color:var(--azul);}
+.tel-nav span.on::before{
+  content:'';display:block;height:2px;background:var(--azul);
+  margin:-8px 0 6px;border-radius:0 0 2px 2px;
+}
+
+/* elementos dentro del teléfono */
+.t-lbl{font-size:9.5px;font-weight:700;color:var(--tinta2);text-transform:uppercase;
+  letter-spacing:.09em;margin:11px 0 4px;}
+.t-in{background:var(--chapa);border:1px solid var(--linea);border-radius:7px;
+  padding:8px 9px;font-size:12px;min-height:31px;display:flex;align-items:center;}
+.t-in.mono{font-family:var(--mono);}
+.t-btn{background:var(--azul);color:#fff;border-radius:8px;padding:10px;text-align:center;
+  font-weight:700;font-size:12px;margin-top:11px;}
+.t-btn.sec{background:var(--azul-pal);color:var(--azul);}
+.t-ops{display:flex;gap:5px;}
+.t-op{flex:1;background:var(--chapa);border:1px solid var(--linea);border-radius:7px;
+  padding:8px 3px;text-align:center;font-size:10.5px;transition:all .3s;}
+.t-op.on{background:var(--azul);color:#fff;border-color:var(--azul);}
+.t-op.mal{background:var(--rojo);color:#fff;border-color:var(--rojo);}
+.t-ficha{background:var(--azul);color:#fff;border-radius:9px;padding:10px;}
+.t-ficha b{display:block;font-family:var(--mono);font-size:15px;letter-spacing:.02em;}
+.t-ficha span{font-size:9.5px;opacity:.88;}
+.t-calc{background:#DDE3EA;border-radius:7px;padding:9px 10px;display:flex;
+  justify-content:space-between;align-items:center;font-size:11.5px;transition:background .4s;}
+.t-calc b{font-family:var(--mono);font-size:16px;}
+.t-calc.mal{background:var(--rojo-pal);color:var(--rojo);}
+.t-card{border-radius:8px;padding:9px 10px;font-size:10.5px;line-height:1.45;margin-top:10px;}
+.t-card b{display:block;font-size:11.5px;margin-bottom:2px;}
+.t-card.warn{background:var(--ambar-pal);border:1px solid #E9CD93;color:#5E3F0B;}
+.t-card.ok{background:var(--verde-pal);border:1px solid #A9D2BC;color:var(--verde);}
+.t-chips{display:flex;gap:4px;flex-wrap:wrap;margin-top:7px;}
+.t-chip{font-size:8.5px;font-weight:700;padding:3px 7px;border-radius:20px;}
+.t-chip.r{background:var(--rojo-pal);color:var(--rojo);}
+.t-chip.a{background:var(--ambar-pal);color:var(--ambar);}
+.t-chip.v{background:var(--verde-pal);color:var(--verde);}
+.t-zona{background:var(--chapa);border:1px solid var(--linea);border-radius:8px;
+  padding:9px;margin-bottom:7px;}
+.t-zona b{font-size:11.5px;}
+.t-zona span{font-size:9.5px;color:var(--tinta3);display:block;}
+
+/* ── animación: escáner ────────────────────────────────────────────── */
+.visor{background:#0A0E13;border-radius:10px;aspect-ratio:1;position:relative;overflow:hidden;}
+.mira{position:absolute;inset:19%;border:2.5px solid rgba(255,255,255,.9);border-radius:10px;}
+.barrido{
+  position:absolute;left:19%;right:19%;height:2px;background:#5CE0A0;
+  box-shadow:0 0 12px 3px rgba(92,224,160,.65);top:19%;opacity:0;
+}
+.qr{
+  position:absolute;left:50%;top:50%;width:52%;aspect-ratio:1;
+  transform:translate(-50%,-50%) scale(.82);opacity:.34;
+}
+.qr .modulos rect{fill:#fff;}
+.qr .fondo{fill:#0A0E13;}
+.tel[data-play="1"] .barrido{animation:barre 2.1s ease-in-out .3s 1 forwards;}
+.tel[data-play="1"] .qr{animation:enfoca 2.1s ease-out .3s 1 forwards;}
+.tel[data-play="1"] .detectado{animation:aparece .35s ease-out 2.3s 1 forwards;}
+@keyframes barre{
+  0%{top:19%;opacity:0;} 8%{opacity:1;}
+  46%{top:81%;} 47%{top:19%;} 92%{top:81%;opacity:1;} 100%{opacity:0;}
+}
+@keyframes enfoca{0%{opacity:.34;transform:translate(-50%,-50%) scale(.82);}
+  100%{opacity:1;transform:translate(-50%,-50%) scale(1);}}
+.detectado{
+  position:absolute;inset:auto 0 0 0;background:#166F45;color:#fff;padding:7px;
+  text-align:center;font-family:var(--mono);font-size:11px;letter-spacing:.08em;opacity:0;
+}
+@keyframes aparece{from{opacity:0;transform:translateY(7px);}to{opacity:1;transform:none;}}
+
+/* ── animación: "todo conforme" ────────────────────────────────────── */
+.tel[data-play="1"] .llena-1{animation:pinta .01s linear .5s 1 forwards;}
+.tel[data-play="1"] .llena-2{animation:pinta .01s linear .75s 1 forwards;}
+.tel[data-play="1"] .llena-3{animation:pinta .01s linear 1s 1 forwards;}
+.tel[data-play="1"] .llena-4{animation:pinta .01s linear 1.25s 1 forwards;}
+@keyframes pinta{to{background:var(--azul);color:#fff;border-color:var(--azul);}}
+.tel[data-play="1"] .queda-vacio{animation:late 1.1s ease-in-out 1.7s 3;}
+@keyframes late{0%,100%{border-color:var(--linea);}
+  50%{border-color:var(--ambar);background:var(--ambar-pal);}}
+
+/* ── animación: medición y cálculo ─────────────────────────────────── */
+.tel[data-play="1"] .tipea-1{animation:tipea .01s linear .6s 1 forwards;}
+.tel[data-play="1"] .tipea-2{animation:tipea .01s linear 1.5s 1 forwards;}
+@keyframes tipea{to{color:var(--tinta);}}
+.oculto-hasta{color:transparent;}
+.tel[data-play="1"] .calc-val{animation:calcula .5s ease-out 2.1s 1 forwards;}
+@keyframes calcula{0%{opacity:0;transform:scale(.7);}100%{opacity:1;transform:none;}}
+.tel[data-play="1"] .se-pone-mal{animation:aMal .5s ease-out 2.6s 1 forwards;}
+@keyframes aMal{to{background:var(--rojo-pal);color:var(--rojo);}}
+.tel[data-play="1"] .avisa{animation:aparece .4s ease-out 3s 1 forwards;opacity:0;}
+
+/* ── animación: cola offline ───────────────────────────────────────── */
+.tel[data-play="1"] .sube{animation:cuenta .01s linear .8s 1 forwards;}
+@keyframes cuenta{to{opacity:1;transform:none;}}
+.contador{
+  display:inline-flex;align-items:center;justify-content:center;min-width:15px;height:15px;
+  border-radius:8px;background:var(--rojo);color:#fff;font-family:var(--mono);
+  font-size:8.5px;font-weight:700;opacity:0;transform:scale(.4);margin-left:4px;
+}
+.tel[data-play="1"] .vacia{animation:seVa .5s ease-in 2.6s 1 forwards;}
+@keyframes seVa{to{opacity:0;transform:scale(.3);}}
+.tel[data-play="1"] .llega-ok{animation:aparece .4s ease-out 3s 1 forwards;opacity:0;}
+
+/* ── botón repetir ─────────────────────────────────────────────────── */
+.repetir{
+  display:block;width:100%;margin-top:8px;background:#1E2833;border:1px solid #35414D;
+  border-radius:8px;padding:8px;font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;
+  text-transform:uppercase;color:#9FB3C6;cursor:pointer;
+}
+.repetir:hover{border-color:#7FA9E8;color:#BFD5EE;}
+.repetir:focus-visible{outline:2px solid var(--azul);outline-offset:2px;}
+
+/* ── avisos en el cuerpo ───────────────────────────────────────────── */
+.aviso{border-left:4px solid var(--azul);background:var(--chapa);padding:15px 17px;
+  margin:16px 0;border-radius:0 8px 8px 0;}
+.aviso.ojo{border-left-color:var(--ambar);background:var(--ambar-pal);}
+.aviso.no{border-left-color:var(--rojo);background:var(--rojo-pal);}
+.aviso b{display:block;margin-bottom:4px;}
+.aviso p:last-child{margin-bottom:0;}
+
+/* ── situaciones ───────────────────────────────────────────────────── */
+.grilla{display:grid;grid-template-columns:repeat(auto-fit,minmax(258px,1fr));gap:1px;
+  background:var(--linea);border:1px solid var(--linea);}
+.sit{background:var(--chapa);padding:19px;}
+.sit .q{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--azul);margin-bottom:7px;}
+.sit p{font-size:14.5px;color:var(--tinta2);margin:0;}
+
+/* ── mediciones destacadas ─────────────────────────────────────────── */
+.medicion{background:var(--chapa);border:1px solid var(--linea);border-left:4px solid var(--tinta);
+  padding:19px;margin-bottom:14px;}
+.medicion .cifra{font-family:var(--mono);font-size:27px;font-weight:700;letter-spacing:-.03em;}
+.medicion .cifra small{font-size:13px;font-weight:400;color:var(--tinta3);letter-spacing:0;}
+.formula{font-family:var(--mono);font-size:13.5px;background:var(--papel);padding:11px 13px;
+  border-radius:6px;margin:11px 0;}
+
+/* ── reglas ────────────────────────────────────────────────────────── */
+.reglas{counter-reset:r;list-style:none;padding:0;margin:0;}
+.reglas li{counter-increment:r;position:relative;padding:15px 0 15px 52px;
+  border-bottom:1px solid var(--linea);}
+.reglas li::before{
+  content:counter(r);position:absolute;left:0;top:14px;font-family:var(--mono);
+  font-size:12px;font-weight:700;color:var(--azul);border:1.5px solid var(--azul);
+  width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+}
+.reglas b{display:block;}
+.reglas span{font-size:14.5px;color:var(--tinta2);}
+
+.pie{margin-top:56px;padding-top:22px;border-top:2px solid var(--tinta);
+  font-size:13.5px;color:var(--tinta2);}
+
+@media (max-width:820px){
+  .paso,.paso.solo{grid-template-columns:38px 1fr;gap:14px;}
+  .num{font-size:26px;}
+  .tel{grid-column:1/-1;justify-self:center;margin-top:18px;}
+}
+@media print{
+  body{background:#fff;font-size:11pt;}
+  .env{padding:0;max-width:none;}
+  .tel,.repetir{display:none;}
+  .paso,.paso.solo{grid-template-columns:34px 1fr;gap:10px;padding:12px 0;
+    break-inside:avoid;}
+  .num{font-size:20px;color:var(--azul);}
+  .placa{margin:0 0 18pt;padding:16pt;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  h1{font-size:26pt;}
+  .rotulo{margin:20pt 0 10pt;}
+  h2{font-size:15pt;}
+  .aviso,.medicion,.sit,.grilla{break-inside:avoid;
+    -webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .grilla{grid-template-columns:1fr 1fr;}
+  .datos{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  a[href]::after{content:'';}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.001s!important;animation-delay:0s!important;transition:none!important;}
+  .contador,.avisa,.llega-ok,.detectado{opacity:1!important;transform:none!important;}
+  .oculto-hasta{color:var(--tinta)!important;}
+}
+</style>
+</head>
+<body>
+
+<header class="placa">
+  <div class="placa-in">
+    <div class="marca">GO Mantenimiento · Grupo Oroño</div>
+    <h1>Preventivo por QR<br><em>Guía del técnico</em></h1>
+    <p class="bajada">Cómo registrar un mantenimiento preventivo con el celular,
+      de principio a fin. Leelo una vez y no lo necesitás más.</p>
+    <dl class="datos">
+      <div class="dato"><dt>Equipos</dt><dd>Aires split</dd></div>
+      <div class="dato"><dt>Herramientas</dt><dd>Pinza + termómetro</dd></div>
+      <div class="dato"><dt>Por equipo</dt><dd>2 a 3 minutos</dd></div>
+      <div class="dato"><dt>Sin señal</dt><dd>Funciona igual</dd></div>
+    </dl>
+  </div>
+</header>
+
+<div class="env">
+
+<div class="rotulo">Antes de arrancar</div>
+<h2>Lo que tenés que llevar</h2>
+<p>Además del celular con la app instalada, necesitás la <b>pinza amperométrica</b> y un
+  <b>termómetro</b>. Sin esas dos cosas no se puede completar el registro: la app pide
+  mediciones reales y no las deja en blanco.</p>
+<div class="aviso">
+  <b>La app funciona sin señal</b>
+  <p>Elegí la institución una vez con señal, al principio del día. Ahí se descargan los
+    equipos al celular. Después podés trabajar en un subsuelo sin conexión y todo se
+    guarda; se envía solo cuando volvés a tener señal.</p>
+</div>
+
+<div class="rotulo">El recorrido completo · 6 pasos</div>
+
+<!-- 1 -->
+<section class="paso">
+  <div class="num">01</div>
+  <div class="paso-txt">
+    <h2>Cargá tu nombre</h2>
+    <p>La primera vez, la app te pide tu nombre y apellido. Se escribe una sola vez y
+      queda guardado para siempre.</p>
+    <p class="chico">Esto no es un trámite: cada preventivo queda firmado con la empresa
+      <b>y con la persona</b>. Si tres técnicos de Texon usan la app y todos firman
+      "Texon", el registro no le sirve a nadie.</p>
+  </div>
+  <div class="tel" data-anim>
+    <div class="tel-in">
+      <div class="tel-barra"><span>Preventivo</span><span>Texon</span></div>
+      <div class="tel-cuerpo">
+        <div class="t-card warn"><b>Falta tu nombre</b>
+          Antes de registrar preventivos, cargá tu nombre. Queda guardado y no hace falta
+          escribirlo de nuevo.</div>
+        <div class="t-lbl">Nombre y apellido</div>
+        <div class="t-in">Juan Pérez</div>
+        <div class="t-btn">Guardar</div>
+      </div>
+      <div class="tel-nav"><span>En espera</span><span class="on">Preventivo</span><span>Config</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 2 -->
+<section class="paso">
+  <div class="num">02</div>
+  <div class="paso-txt">
+    <h2>Elegí la institución</h2>
+    <p>Cuando la elegís, la app se baja todos los equipos de ese edificio al celular.
+      Eso es lo que después te deja trabajar sin señal.</p>
+    <p>Debajo aparecen las <b>zonas con trabajo</b>: en vez de una lista de equipos
+      sueltos repartidos por todo el edificio, te dice en qué piso conviene meterse y
+      cuántos equipos hay ahí.</p>
+    <p class="chico">Si trabajás siempre en el mismo edificio, lo elegís una vez y no lo
+      tocás nunca más.</p>
+  </div>
+  <div class="tel" data-anim>
+    <div class="tel-in">
+      <div class="tel-barra"><span>Preventivo</span><span>Texon · Juan</span></div>
+      <div class="tel-cuerpo">
+        <div class="t-lbl">Institución</div>
+        <div class="t-in">Instituto Cardiovascular Rosario</div>
+        <div class="t-btn">Escanear equipo</div>
+        <div class="t-lbl">Zonas con trabajo</div>
+        <div class="t-zona"><b>Internación</b><span>Piso 3</span>
+          <div class="t-chips"><span class="t-chip r">6 vencidos</span>
+            <span class="t-chip a">34 en 30 días</span></div></div>
+        <div class="t-zona"><b>Internación</b><span>Piso 4</span>
+          <div class="t-chips"><span class="t-chip a">12 en 30 días</span>
+            <span class="t-chip v">+8 se pueden adelantar</span></div></div>
+      </div>
+      <div class="tel-nav"><span>En espera</span><span class="on">Preventivo</span><span>Config</span></div>
+    </div>
+  </div>
+</section>
+
+<div class="aviso">
+  <b>¿Qué es "se pueden adelantar"?</b>
+  <p>Son equipos de ese mismo piso que todavía no vencieron, pero les falta poco. Si ya
+    estás ahí, conviene hacerlos: te ahorra volver, y de paso quedan todos alineados en
+    la misma fecha para la próxima vuelta.</p>
+</div>
+
+<!-- 3 -->
+<section class="paso">
+  <div class="num">03</div>
+  <div class="paso-txt">
+    <h2>Escaneá la etiqueta</h2>
+    <p>Apuntá la cámara al código de la etiqueta del equipo. No hay que apretar nada:
+      cuando lo reconoce, el celular vibra y pasa solo a la pantalla siguiente.</p>
+    <p>La etiqueta está <b>siempre en el mismo lugar</b> de cada tipo de equipo. En los
+      splits, en el marco inferior de la unidad interior.</p>
+    <p class="chico">Si el código está rayado o ilegible, abajo de la cámara hay un campo
+      para escribirlo a mano. El código también está impreso en letras grandes debajo
+      del cuadrado.</p>
+  </div>
+  <div class="tel" data-anim>
+    <div class="tel-in">
+      <div class="tel-barra"><span>Escanear</span><span>3 hoy</span></div>
+      <div class="tel-cuerpo">
+        <div class="visor">
+          <svg class="qr" viewBox="0 0 21 21" shape-rendering="crispEdges" aria-hidden="true">
+            <rect class="fondo" x="0" y="0" width="21" height="21"/>
+            <g class="modulos">
+              <rect x="1" y="1" width="5" height="1"/><rect x="1" y="5" width="5" height="1"/>
+              <rect x="1" y="1" width="1" height="5"/><rect x="5" y="1" width="1" height="5"/>
+              <rect x="3" y="3" width="1" height="1"/>
+              <rect x="15" y="1" width="5" height="1"/><rect x="15" y="5" width="5" height="1"/>
+              <rect x="15" y="1" width="1" height="5"/><rect x="19" y="1" width="1" height="5"/>
+              <rect x="17" y="3" width="1" height="1"/>
+              <rect x="1" y="15" width="5" height="1"/><rect x="1" y="19" width="5" height="1"/>
+              <rect x="1" y="15" width="1" height="5"/><rect x="5" y="15" width="1" height="5"/>
+              <rect x="3" y="17" width="1" height="1"/>
+              <rect x="8" y="1" width="1" height="1"/><rect x="10" y="2" width="1" height="1"/>
+              <rect x="12" y="1" width="1" height="1"/><rect x="8" y="3" width="1" height="1"/>
+              <rect x="11" y="4" width="1" height="1"/><rect x="9" y="5" width="1" height="1"/>
+              <rect x="12" y="6" width="1" height="1"/><rect x="7" y="7" width="1" height="1"/>
+              <rect x="9" y="8" width="1" height="1"/><rect x="11" y="7" width="1" height="1"/>
+              <rect x="13" y="9" width="1" height="1"/><rect x="15" y="8" width="1" height="1"/>
+              <rect x="17" y="10" width="1" height="1"/><rect x="19" y="9" width="1" height="1"/>
+              <rect x="8" y="10" width="1" height="1"/><rect x="10" y="11" width="1" height="1"/>
+              <rect x="12" y="12" width="1" height="1"/><rect x="14" y="11" width="1" height="1"/>
+              <rect x="16" y="13" width="1" height="1"/><rect x="18" y="12" width="1" height="1"/>
+              <rect x="7" y="13" width="1" height="1"/><rect x="9" y="14" width="1" height="1"/>
+              <rect x="11" y="15" width="1" height="1"/><rect x="13" y="16" width="1" height="1"/>
+              <rect x="15" y="17" width="1" height="1"/><rect x="17" y="15" width="1" height="1"/>
+              <rect x="19" y="17" width="1" height="1"/><rect x="8" y="18" width="1" height="1"/>
+              <rect x="10" y="19" width="1" height="1"/><rect x="12" y="18" width="1" height="1"/>
+              <rect x="14" y="19" width="1" height="1"/><rect x="16" y="18" width="1" height="1"/>
+              <rect x="18" y="19" width="1" height="1"/>
+            </g>
+          </svg>
+          <div class="mira"></div>
+          <div class="barrido"></div>
+          <div class="detectado">ICR-AA-0042</div>
+        </div>
+        <div class="t-lbl">¿Etiqueta ilegible? Escribí el código</div>
+        <div class="t-in mono">ICR-AA-____</div>
+      </div>
+      <div class="tel-nav"><span>En espera</span><span class="on">Preventivo</span><span>Config</span></div>
+    </div>
+    <button class="repetir" type="button">▸ Ver de nuevo</button>
+  </div>
+</section>
+
+<!-- 4 -->
+<section class="paso">
+  <div class="num">04</div>
+  <div class="paso-txt">
+    <h2>Contestá el checklist</h2>
+    <p>Arriba está la ficha del equipo: qué es, dónde está y cuándo se hizo la última vez.
+      Debajo, las preguntas.</p>
+    <p>El botón <b>Todo conforme</b> te precarga de una todo lo que se responde por sí o
+      por no. Solo corregís lo que esté mal. Es la forma rápida de trabajar.</p>
+    <p class="chico">Fijate en la animación: los botones se llenan solos, pero
+      <b>los campos con números quedan vacíos</b>. Eso es a propósito.</p>
+  </div>
+  <div class="tel" data-anim>
+    <div class="tel-in">
+      <div class="tel-barra"><span>Checklist</span><span>Split</span></div>
+      <div class="tel-cuerpo">
+        <div class="t-ficha"><b>ICR-AA-0042</b>
+          <span>Internación · piso 3 · Habitación 312</span><br>
+          <span>Último: 20/05 · vencido hace 4 días</span></div>
+        <div class="t-btn sec" style="margin-top:9px">Todo conforme</div>
+        <div class="t-lbl">Consumo del compresor (A)</div>
+        <div class="t-in queda-vacio">&nbsp;</div>
+        <div class="t-lbl">Filtros</div>
+        <div class="t-ops">
+          <div class="t-op llena-1">Limpios</div><div class="t-op">Lavados hoy</div>
+          <div class="t-op">Reemplazar</div></div>
+        <div class="t-lbl">Turbina</div>
+        <div class="t-ops"><div class="t-op llena-2">Bueno</div>
+          <div class="t-op">Requiere atención</div></div>
+        <div class="t-lbl">Radiador</div>
+        <div class="t-ops"><div class="t-op llena-3">Bueno</div>
+          <div class="t-op">Requiere limpieza</div></div>
+        <div class="t-lbl">Drenaje sin pérdidas</div>
+        <div class="t-ops"><div class="t-op llena-4">Sí</div><div class="t-op">No</div></div>
+      </div>
+    </div>
+    <button class="repetir" type="button">▸ Ver de nuevo</button>
+  </div>
+</section>
+
+<div class="aviso ojo">
+  <b>Los números no se autocompletan nunca</b>
+  <p>"Todo conforme" precarga las preguntas de sí o no, pero jamás las mediciones. Los
+    amperes y las temperaturas hay que medirlos y escribirlos, siempre. Son los dos datos
+    que de verdad dicen cómo está el equipo; el resto es lo que se ve a simple vista.</p>
+</div>
+
+<div class="rotulo">Las dos mediciones que deciden</div>
+<h2>Acá está el trabajo técnico</h2>
+<p>De todo el checklist, dos cosas son mediciones que la app compara sola contra un límite
+  y decide si el equipo está bien. Estas son las que importan.</p>
+
+<div class="medicion">
+  <h3>Consumo del compresor</h3>
+  <p class="chico">Se mide con la pinza amperométrica en la línea del compresor, con el
+    equipo funcionando en régimen.</p>
+  <p>El consumo de fábrica se cargó una sola vez, cuando el equipo se dio de alta, leyendo
+    la chapa. <b>Vos solo medís el consumo real.</b> La app compara sola.</p>
+  <div class="formula">límite = consumo de chapa × 1,25</div>
+  <p class="cifra">25 % <small>por encima de la chapa dispara un correctivo</small></p>
+</div>
+
+<div class="medicion">
+  <h3>Salto térmico</h3>
+  <p class="chico">Se mide dos veces con el termómetro: primero en la rejilla de retorno,
+    después en la de salida.</p>
+  <p>No es la temperatura de salida sola. Es la <b>diferencia</b> entre lo que entra y lo
+    que sale. Un split sano enfría entre 8 y 11 grados respecto del ambiente. La app hace
+    la resta.</p>
+  <div class="formula">salto = retorno − salida</div>
+  <p class="cifra">7 °C <small>o menos dispara un correctivo</small></p>
+</div>
+
+<div class="aviso">
+  <b>¿Por qué la diferencia y no la temperatura de salida?</b>
+  <p>Porque la salida depende de cuán caluroso esté el día. En enero un equipo sano puede
+    tirar 20 grados y estar perfecto; en julio puede tirar 14 y estar fallado. La
+    diferencia entre entrada y salida sirve en cualquier época del año.</p>
+</div>
+
+<!-- 5 -->
+<section class="paso">
+  <div class="num">05</div>
+  <div class="paso-txt">
+    <h2>La app calcula y te avisa</h2>
+    <p>A medida que escribís las mediciones, el resultado aparece solo. No hay que hacer
+      ninguna cuenta.</p>
+    <p>Si algo se va del límite, el campo se pone en rojo y aparece un aviso <b>antes</b>
+      de guardar. Así podés revisar la medición en el momento, por si te equivocaste
+      tipeando.</p>
+    <p class="chico">Un desvío no te frena ni te da más trabajo. Solo queda registrado y
+      el sistema prepara el correctivo.</p>
+  </div>
+  <div class="tel" data-anim>
+    <div class="tel-in">
+      <div class="tel-barra"><span>Checklist</span><span>ICR-AA-0042</span></div>
+      <div class="tel-cuerpo">
+        <div class="t-lbl">Temperatura de retorno (°C)</div>
+        <div class="t-in mono"><span class="oculto-hasta tipea-1">24,3</span></div>
+        <div class="t-lbl">Temperatura de salida (°C)</div>
+        <div class="t-in mono"><span class="oculto-hasta tipea-2">19,5</span></div>
+        <div class="t-lbl">Salto térmico</div>
+        <div class="t-calc se-pone-mal"><span>Calculado por la app</span>
+          <b class="calc-val" style="opacity:0">4,8 °C</b></div>
+        <div class="t-card warn avisa"><b>Se detectaron desvíos</b>
+          Salto térmico. Al guardar se prepara un correctivo, que queda esperando
+          confirmación del referente. No se abre solo.</div>
+      </div>
+    </div>
+    <button class="repetir" type="button">▸ Ver de nuevo</button>
+  </div>
+</section>
+
+<!-- 6 -->
+<section class="paso">
+  <div class="num">06</div>
+  <div class="paso-txt">
+    <h2>Sacá fotos y guardá</h2>
+    <p>Podés adjuntar hasta tres fotos y escribir observaciones. Las dos cosas son
+      opcionales, pero si marcaste algo como "requiere limpieza" o "reemplazar", una foto
+      vale más que cualquier explicación.</p>
+    <p>Apretás <b>Guardar preventivo</b> y la app vuelve sola a la cámara, lista para el
+      equipo siguiente. Arriba llevás la cuenta de cuántos hiciste en el día.</p>
+    <p class="chico">No hay pantallas intermedias ni confirmaciones. Guardaste, siguiente.</p>
+  </div>
+  <div class="tel solo" data-anim>
+    <div class="tel-in">
+      <div class="tel-barra"><span>Checklist</span><span>ICR-AA-0042</span></div>
+      <div class="tel-cuerpo">
+        <div class="t-lbl">Fotos</div>
+        <div class="t-ops">
+          <div class="t-op" style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:#DDE3EA;">▣</div>
+          <div class="t-op" style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;">＋</div>
+          <div class="t-op" style="visibility:hidden">&nbsp;</div>
+        </div>
+        <div class="t-lbl">Observaciones</div>
+        <div class="t-in" style="min-height:46px;align-items:flex-start;font-size:11px;color:var(--tinta2)">
+          Radiador con mucha suciedad, se solicita limpieza profunda.</div>
+        <div class="t-btn">Guardar preventivo</div>
+        <div style="text-align:center;font-size:9px;color:var(--tinta3);margin-top:6px">
+          Firma: Texon · Juan Pérez</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="rotulo">Situaciones que se van a dar</div>
+<h2>Qué hacer cuando no es el caso simple</h2>
+<p>Estas son las cosas que pasan de verdad en el campo. Todas tienen respuesta en la app.</p>
+
+<div class="grilla">
+  <div class="sit"><div class="q">El equipo no está cargado</div>
+    <p>La primera vez que se escanea un equipo, no existe en el sistema. La app te lo dice
+      y te pide cuatro datos: tipo, lugar, piso y cada cuántos días se hace. Ese primer
+      escaneo es el alta. Después ya lo reconoce.</p></div>
+
+  <div class="sit"><div class="q">No hay señal</div>
+    <p>Guardá igual. El registro queda en el celular y arriba aparece un número rojo con
+      lo que falta enviar. Cuando volvés a tener señal, se manda solo. No tenés que hacer
+      nada.</p></div>
+
+  <div class="sit"><div class="q">La etiqueta está ilegible</div>
+    <p>Escribí el código a mano en el campo que está abajo de la cámara. El código también
+      está impreso en letras grandes debajo del cuadrado. Avisá para que se reponga la
+      etiqueta.</p></div>
+
+  <div class="sit"><div class="q">El equipo se mudó de lugar</div>
+    <p>Corregilo en el momento desde la ficha del equipo. No lo dejes mal: si el lugar está
+      equivocado, el próximo técnico lo va a buscar donde no está.</p></div>
+
+  <div class="sit"><div class="q">El equipo ya no existe</div>
+    <p>Si se retiró o se reemplazó, marcalo como fuera de servicio y poné el motivo. Deja
+      de aparecer como pendiente, pero se conserva todo su historial.</p></div>
+
+  <div class="sit"><div class="q">Ya lo hizo otro hoy</div>
+    <p>La app te avisa quién y a qué hora, pero no te bloquea. Si igual hace falta
+      registrarlo, seguí adelante.</p></div>
+</div>
+
+<div class="rotulo">Cuando no hay señal</div>
+<h2>La cola de pendientes</h2>
+<p>Todo lo que se registra sin conexión queda esperando en el celular. El número rojo
+  arriba te dice cuántos son.</p>
+
+<section class="paso">
+  <div class="num">!</div>
+  <div class="paso-txt">
+    <div class="aviso no">
+      <b>Mientras el número rojo esté visible, no borres los datos de la app ni cambies
+        de teléfono</b>
+      <p>Esos registros están solo en ese celular. Si limpiás la caché o cambiás de
+        equipo antes de que se envíen, se pierden y hay que volver a hacer los
+        preventivos.</p>
+    </div>
+    <p>Para forzar el envío: entrá a la pestaña Preventivo y apretá <b>Enviar ahora</b>.
+      Pero normalmente no hace falta, se manda solo en cuanto hay señal.</p>
+  </div>
+  <div class="tel" data-anim>
+    <div class="tel-in">
+      <div class="tel-barra"><span>Preventivo</span>
+        <span>Pendientes <span class="contador sube vacia">3</span></span></div>
+      <div class="tel-cuerpo">
+        <div class="t-card warn"><b>Sin conexión</b>
+          3 registros guardados en el celular, esperando señal.</div>
+        <div class="t-zona"><b>ICR-AA-0042</b><span>Hoy 10:42 · 1 foto</span></div>
+        <div class="t-zona"><b>ICR-AA-0043</b><span>Hoy 10:51</span></div>
+        <div class="t-zona"><b>ICR-AA-0044</b><span>Hoy 11:03 · 2 fotos</span></div>
+        <div class="t-card ok llega-ok"><b>3 enviados</b>
+          Ya están en el sistema. Podés seguir tranquilo.</div>
+      </div>
+      <div class="tel-nav"><span>En espera</span><span class="on">Preventivo</span><span>Config</span></div>
+    </div>
+    <button class="repetir" type="button">▸ Ver de nuevo</button>
+  </div>
+</section>
+
+<div class="rotulo">Después de que guardás</div>
+<h2>Qué pasa con un desvío</h2>
+<p>Cuando una medición se va del límite, el sistema arma el pedido de reparación completo
+  —equipo, lugar, piso, la medición que falló y las fotos— y lo deja <b>esperando que el
+  referente lo confirme</b>.</p>
+<p>No se abre un pedido solo. Hay una persona que lo mira y decide. Eso es a propósito: si
+  se abriera automáticamente, un error de tipeo tuyo se convertiría en una orden de trabajo
+  que nadie pidió.</p>
+<div class="aviso">
+  <b>Lo que esto significa para vos</b>
+  <p>Registrá lo que medís, tal como lo medís. Si un número te llama la atención, revisá la
+    medición antes de guardar. No hace falta que decidas si amerita una reparación: eso lo
+    resuelve el referente con el dato que vos le diste.</p>
+</div>
+
+<div class="rotulo">Para tener a mano</div>
+<h2>Seis reglas</h2>
+<ol class="reglas">
+  <li><b>Elegí la institución con señal, al empezar el día</b>
+    <span>Es lo que te permite trabajar después sin conexión.</span></li>
+  <li><b>Medí de verdad</b>
+    <span>Los números no se autocompletan porque son el único dato que no se puede
+      inventar mirando el equipo de afuera.</span></li>
+  <li><b>Trabajá por zonas, no por equipos sueltos</b>
+    <span>Si estás en un piso, hacé todo lo que hay ahí, incluso lo que se puede adelantar.
+      Te ahorra volver.</span></li>
+  <li><b>Si algo está mal, sacá una foto</b>
+    <span>Una foto resuelve discusiones que tres párrafos no resuelven.</span></li>
+  <li><b>Si el equipo no está donde dice, corregilo ahí mismo</b>
+    <span>Treinta segundos ahora le ahorran una vuelta perdida al que venga después.</span></li>
+  <li><b>Con el número rojo visible, no toques la app ni el teléfono</b>
+    <span>Esos registros todavía no salieron del celular.</span></li>
+</ol>
+
+<div class="pie">
+  <b>GO Mantenimiento · Preventivo QR</b><br>
+  Si algo no funciona como dice acá, avisá antes de seguir cargando: es más fácil arreglar
+  el sistema que corregir cien registros mal cargados.
+</div>
+
+</div>
+
+<script>
+/* Las animaciones arrancan cuando el teléfono entra en pantalla, así el técnico
+   ve cada paso justo cuando lo está leyendo. El botón repite. */
+(function () {
+  var tels = document.querySelectorAll('[data-anim]');
+
+  function reproducir(tel) {
+    tel.removeAttribute('data-play');
+    void tel.offsetWidth;                 // fuerza el reinicio de las animaciones
+    tel.setAttribute('data-play', '1');
+  }
+
+  if ('IntersectionObserver' in window) {
+    var obs = new IntersectionObserver(function (entradas) {
+      entradas.forEach(function (e) {
+        if (e.isIntersecting && !e.target.hasAttribute('data-play')) reproducir(e.target);
+      });
+    }, { threshold: 0.45 });
+    tels.forEach(function (t) { obs.observe(t); });
+  } else {
+    tels.forEach(reproducir);
+  }
+
+  document.querySelectorAll('.repetir').forEach(function (b) {
+    b.addEventListener('click', function () { reproducir(b.closest('[data-anim]')); });
+  });
+})();
+</script>
+</body>
+</html>
