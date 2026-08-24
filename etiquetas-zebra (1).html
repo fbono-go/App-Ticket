@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etiquetas Zebra · Preventivo QR</title>
+<style>
+:root{
+  --tinta:#10161D; --tinta2:#48545F; --tinta3:#8593A0;
+  --papel:#E9EDF1; --chapa:#FFFFFF; --azul:#0060D6; --azul-pal:#DCE8FA;
+  --ambar:#B8791A; --ambar-pal:#FDF2DC; --linea:#C3CDD6;
+  --mono:ui-monospace,'SF Mono',SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--papel);color:var(--tinta);font-family:var(--sans);font-size:15px;}
+
+.panel{background:var(--tinta);color:#fff;padding:26px 22px;border-bottom:5px solid var(--azul);}
+.panel-in{max-width:1080px;margin:0 auto;}
+.marca{font-family:var(--mono);font-size:10px;letter-spacing:.22em;text-transform:uppercase;
+  color:#7FA9E8;margin-bottom:10px;}
+h1{font-size:29px;margin:0 0 5px;letter-spacing:-.03em;font-weight:800;}
+.sub{color:#B4C2CE;font-size:14px;margin:0 0 22px;max-width:64ch;}
+.campos{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;align-items:end;}
+label{display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;
+  text-transform:uppercase;color:#7E8E9C;margin-bottom:5px;}
+select,input{width:100%;padding:9px 10px;border:1px solid #35414D;border-radius:7px;
+  background:#18202A;color:#fff;font-size:15px;font-family:inherit;}
+input[type=number]{font-family:var(--mono);}
+select:focus,input:focus{outline:2px solid var(--azul);outline-offset:1px;}
+.acciones{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;align-items:center;}
+button{padding:11px 18px;border:0;border-radius:8px;font-size:14px;font-weight:700;
+  font-family:inherit;cursor:pointer;background:var(--azul);color:#fff;}
+button.sec{background:#243040;color:#BFD5EE;}
+button:disabled{opacity:.4;cursor:default;}
+.cuenta{font-family:var(--mono);font-size:12px;color:#7E8E9C;}
+
+.env{max-width:1080px;margin:0 auto;padding:24px 22px 70px;}
+.aviso{border-left:4px solid var(--ambar);background:var(--ambar-pal);padding:14px 16px;
+  border-radius:0 8px 8px 0;margin-bottom:18px;font-size:14px;line-height:1.55;}
+.aviso.info{border-left-color:var(--azul);background:var(--azul-pal);}
+.aviso > b{display:block;margin-bottom:4px;}
+.aviso ol{margin:8px 0 0;padding-left:20px;} .aviso li{margin-bottom:4px;}
+.rotulo{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--tinta3);border-bottom:1px solid var(--linea);padding-bottom:6px;margin-bottom:16px;}
+
+/* ── la etiqueta: 100 × 50 mm ──────────────────────────────────────── */
+.tira{background:#fff;padding:0;margin:0 auto;}
+.et{
+  width:100mm;height:50mm;background:#fff;color:#000;
+  display:flex;align-items:center;gap:3mm;
+  padding:2.5mm;overflow:hidden;position:relative;
+}
+/* El corte va ANTES de cada etiqueta menos la primera. Con page-break-after
+   quedaba una página vacía al final, que en rollo continuo es una etiqueta
+   en blanco expulsada en cada tanda. */
+.et + .et{page-break-before:always;break-before:page;}
+.et .caja{
+  flex:1;height:100%;border:0.6mm solid #000;border-radius:1.5mm;
+  display:flex;flex-direction:column;justify-content:center;
+  padding:2mm 2.5mm;overflow:hidden;
+}
+.et .titulo{
+  font-family:var(--sans);font-weight:800;font-size:3.2mm;line-height:1.1;
+  letter-spacing:0.06em;text-transform:uppercase;
+}
+.et .sub2{
+  font-family:var(--sans);font-size:2.7mm;line-height:1.15;letter-spacing:0.2em;
+  text-transform:uppercase;margin-top:0.6mm;
+}
+.et .regla{height:0.4mm;background:#000;margin:2mm 0;}
+.et .codigo{
+  font-family:var(--mono);font-weight:700;font-size:6.6mm;line-height:1;
+  letter-spacing:-0.02em;white-space:nowrap;
+}
+.et canvas{display:block;image-rendering:pixelated;}
+
+.previa{overflow:auto;background:#fff;border:1px solid var(--linea);padding:14px;}
+.previa .et{border:1px dashed #C9D2DB;margin-bottom:8px;}
+.zoom{transform-origin:top left;}
+
+@media print{
+  /* El tamaño de página ES la etiqueta: una por página, sin márgenes. */
+  @page{size:100mm 50mm;margin:0;}
+  body{background:#fff;}
+  .panel,.env > *:not(.previa),.previa{border:0;padding:0;background:#fff;}
+  .panel,.env > *:not(.previa){display:none!important;}
+  .env{padding:0;max-width:none;}
+  /* la altura en línea es del zoom de la vista previa; al imprimir desborda
+     a una página de más */
+  .zoom{transform:none!important;height:auto!important;}
+  html,body{height:auto!important;}
+  .previa .et{border:0;margin:0;}
+}
+</style>
+</head>
+<body>
+
+<div class="panel">
+  <div class="panel-in">
+    <div class="marca">GO Mantenimiento · Grupo Oroño</div>
+    <h1>Etiquetas Zebra · 100 × 50 mm</h1>
+    <p class="sub">Preparado para la GC420t con rollo de 100 mm de ancho.
+      El código a la izquierda, el QR a la derecha.</p>
+
+    <div class="campos">
+      <div><label for="inst">Institución</label><select id="inst"></select></div>
+      <div><label for="tipo">Tipo de equipo</label>
+        <select id="tipo">
+          <optgroup label="Equipos autónomos">
+            <option value="AA">AA · Split · unidad interior</option>
+            <option value="RT">RT · Rooftop / compacto</option>
+            <option value="CA">CA · Cortina de aire</option>
+          </optgroup>
+          <optgroup label="Generación">
+            <option value="VE">VE · VRF · unidad exterior</option>
+            <option value="AE">AE · Split · unidad exterior</option>
+            <option value="ME">ME · Multi-split · unidad exterior</option>
+            <option value="CH">CH · Chiller</option>
+          </optgroup>
+          <optgroup label="Distribución">
+            <option value="BO">BO · Bomba de circulación</option>
+          </optgroup>
+          <optgroup label="Terminales">
+            <option value="VI">VI · VRF · unidad interior</option>
+            <option value="FC">FC · Fancoil</option>
+          </optgroup>
+          <optgroup label="Tratamiento de aire">
+            <option value="UT">UT · UTA</option>
+          </optgroup>
+          <optgroup label="Otros">
+            <option value="AS">AS · Ascensor</option>
+            <option value="CI">CI · Cama de internación</option>
+            <option value="SR">SR · Silla de ruedas</option>
+          </optgroup>
+        </select>
+      </div>
+      <div><label for="desde">Desde el número</label>
+        <input id="desde" type="number" inputmode="numeric" min="1" max="9999" value="1"></div>
+      <div><label for="cuantas">Cuántas etiquetas</label>
+        <input id="cuantas" type="number" inputmode="numeric" min="1" max="500" value="20"></div>
+      <div><label for="qrmm">Tamaño del QR</label>
+        <select id="qrmm">
+          <option value="25">25 mm</option>
+          <option value="33">33 mm</option>
+          <option value="41" selected>41 mm · el más grande que entra</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="acciones">
+      <button id="generar" type="button">Generar</button>
+      <button id="imprimir" type="button" class="sec" disabled>Imprimir</button>
+      <button id="zpl" type="button" class="sec" disabled>Descargar ZPL</button>
+      <span class="cuenta" id="cuenta"></span>
+    </div>
+  </div>
+</div>
+
+<div class="env">
+
+  <div class="aviso">
+    <b>Antes de imprimir</b>
+    <ol>
+      <li>La GC420t tiene que estar en modo <b>transferencia térmica</b>, con ribbon.
+        En térmica directa la etiqueta se borra con el calor del equipo y con el alcohol
+        de la limpieza.</li>
+      <li>En el driver de Windows, el tamaño de papel debe ser <b>100 × 50 mm</b> y la
+        escala <b>100 %</b>. Nunca "ajustar a la página".</li>
+      <li>Imprimí <b>una sola</b> y medí el cuadrado con la regla antes de tirar el lote.</li>
+    </ol>
+  </div>
+
+  <div class="aviso info">
+    <b>Si la impresión desde el navegador sale corrida</b>
+    Usá el botón <b>Descargar ZPL</b>. Ese archivo va directo a la impresora y no depende
+    del navegador ni del driver: los códigos los dibuja la propia Zebra, con el tamaño
+    exacto. Se envía con Zebra Setup Utilities, en "Open Communication With Printer",
+    pegando el contenido del archivo.
+  </div>
+
+  <div class="rotulo" id="titulo">Elegí las opciones y tocá Generar</div>
+  <div class="previa"><div class="zoom" id="zoom"></div></div>
+</div>
+
+<script src="./qrgen.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var MM = 3.7795275591;      // 1 mm en píxeles CSS a 96 dpi
+  var DPI = 203;              // resolución de la GC420t
+  var PUNTO_MM = 25.4 / DPI;  // 0,125 mm por punto
+  var NIVEL = 'H';            // máxima corrección: la etiqueta se raya
+
+  var $ = function (id) { return document.getElementById(id); };
+  var ultimas = [];
+
+  var RESPALDO = [
+    { t: 'Instituto Cardiovascular Rosario', c: 'ICR' },
+    { t: 'Sanatorio Parque', c: 'SP' },
+    { t: 'Sanatorio de Niños', c: 'SDN' },
+    { t: 'Diagnóstico Médico Oroño', c: 'DMO' },
+    { t: 'Grupo Oroño', c: 'GO' },
+    { t: 'Medicina Esencial', c: 'ME' },
+    { t: 'GO Gastro', c: 'GG' }
+  ];
+
+  function codigoDe(nombre) {
+    var fijos = {
+      'instituto cardiovascular rosario': 'ICR', 'sanatorio parque': 'SP',
+      'sanatorio de niños': 'SDN', 'diagnóstico médico oroño': 'DMO',
+      'grupo oroño': 'GO', 'medicina esencial sa': 'ME', 'go gastro': 'GG'
+    };
+    var k = String(nombre).toLowerCase().trim();
+    if (fijos[k]) return fijos[k];
+    return k.split(/\s+/).map(function (p) { return p[0]; }).join('')
+            .toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+  }
+
+  function llenar(lista) {
+    $('inst').innerHTML = lista.map(function (i) {
+      return '<option value="' + i.c + '">' + i.c + ' · ' + i.t + '</option>';
+    }).join('');
+  }
+
+  fetch('./data.json', { cache: 'no-cache' })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      var l = (d.instituciones || []).map(function (i) {
+        return { t: i.t, c: codigoDe(i.t) };
+      });
+      llenar(l.length ? l : RESPALDO);
+    })
+    .catch(function () { llenar(RESPALDO); });
+
+  /* ── el QR, con el módulo cuadrado en puntos exactos ──────────────── */
+  function dibujarQR(codigo, ladoPedidoMm) {
+    var qr = qrcode(0, NIVEL);
+    qr.addData(codigo);
+    qr.make();
+    var n = qr.getModuleCount();
+    var quiet = 4;                       // margen obligatorio del estándar
+    var total = n + quiet * 2;
+
+    // Redondear el módulo a un número entero de puntos de impresora. Si no,
+    // a 203 dpi unos módulos salen de 3 puntos y otros de 4, el código queda
+    // deformado y la lectura empieza a fallar de forma intermitente.
+    // El tamaño se calcula sobre el ancho TOTAL, con el margen incluido: es lo
+    // que de verdad ocupa en la etiqueta y lo que hay que dejar libre.
+    var puntosPorModulo = Math.max(2, Math.round((ladoPedidoMm / total) / PUNTO_MM));
+    var moduloMm = puntosPorModulo * PUNTO_MM;
+    var anchoMm = total * moduloMm;
+
+    var esc = 8;                         // se dibuja grande y se achica: bordes limpios
+    var px = total * esc;
+    var c = document.createElement('canvas');
+    c.width = c.height = px;
+    var ctx = c.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, px, px);
+    ctx.fillStyle = '#000';
+    for (var f = 0; f < n; f++) {
+      for (var col = 0; col < n; col++) {
+        if (qr.isDark(f, col)) {
+          ctx.fillRect((col + quiet) * esc, (f + quiet) * esc, esc, esc);
+        }
+      }
+    }
+    c.style.width = anchoMm + 'mm';
+    c.style.height = anchoMm + 'mm';
+    return { canvas: c, anchoMm: anchoMm, moduloMm: moduloMm, modulos: n };
+  }
+
+  function etiqueta(codigo, qrMm) {
+    var d = document.createElement('div');
+    d.className = 'et';
+
+    var caja = document.createElement('div');
+    caja.className = 'caja';
+    caja.innerHTML =
+      '<div class="titulo">GO Mantenimiento</div>' +
+      '<div class="sub2">Preventivo</div>' +
+      '<div class="regla"></div>' +
+      '<div class="codigo">' + codigo + '</div>';
+    d.appendChild(caja);
+
+    var q = dibujarQR(codigo, qrMm);
+    d.appendChild(q.canvas);
+    return { nodo: d, info: q };
+  }
+
+  /* ── generación ───────────────────────────────────────────────────── */
+  function generar() {
+    var cod = $('inst').value;
+    var tipo = $('tipo').value;
+    var desde = Math.max(1, parseInt($('desde').value, 10) || 1);
+    var cuantas = Math.min(500, Math.max(1, parseInt($('cuantas').value, 10) || 1));
+    var qrMm = parseFloat($('qrmm').value);
+
+    var zoom = $('zoom');
+    zoom.innerHTML = '';
+    ultimas = [];
+    var info = null;
+
+    for (var i = 0; i < cuantas; i++) {
+      var numero = String(desde + i).padStart(4, '0');
+      var codigo = cod + '-' + tipo + '-' + numero;
+      ultimas.push(codigo);
+      var e = etiqueta(codigo, qrMm);
+      info = e.info;
+      zoom.appendChild(e.nodo);
+    }
+
+    var ultimo = String(desde + cuantas - 1).padStart(4, '0');
+    $('titulo').textContent = cuantas + ' etiquetas · ' + cod + '-' + tipo + '-' +
+      String(desde).padStart(4, '0') + ' a ' + cod + '-' + tipo + '-' + ultimo;
+    $('cuenta').textContent = 'QR de ' + info.anchoMm.toFixed(1) + ' mm · módulo de ' +
+      info.moduloMm.toFixed(3) + ' mm (' + Math.round(info.moduloMm / PUNTO_MM) + ' puntos)';
+    $('imprimir').disabled = false;
+    $('zpl').disabled = false;
+    ajustar();
+  }
+
+  function ajustar() {
+    var disp = $('zoom').parentNode.clientWidth - 28;
+    var f = Math.min(1, disp / (100 * MM));
+    $('zoom').style.transform = 'scale(' + f + ')';
+    $('zoom').style.height = ($('zoom').scrollHeight * f) + 'px';
+  }
+
+  /* ── ZPL: lo dibuja la impresora, sin pasar por el navegador ──────── */
+  function generarZPL() {
+    var qrMm = parseFloat($('qrmm').value);
+
+    // en ZPL el tamaño del QR se da en "magnification": módulos por punto
+    var qr = qrcode(0, NIVEL);
+    qr.addData(ultimas[0] || 'X');
+    qr.make();
+    var mag = Math.max(2, Math.min(10,
+      Math.round((qrMm / (qr.getModuleCount() + 8)) / PUNTO_MM)));
+
+    var P = function (mm) { return Math.round(mm / PUNTO_MM); };   // mm a puntos
+    var salida = ultimas.map(function (codigo) {
+      return [
+        '^XA',
+        '^PW' + P(100),             // ancho de etiqueta
+        '^LL' + P(50),              // largo
+        '^LH0,0',
+        '^MMT',                     // transferencia térmica
+        '^PR2',                     // velocidad moderada: mejor definición
+        // recuadro izquierdo
+        '^FO' + P(2.5) + ',' + P(2.5) + '^GB' + P(51) + ',' + P(45) + ',' + P(0.6) + '^FS',
+        '^FO' + P(6.5) + ',' + P(9) + '^A0N,' + P(4) + ',' + P(3.6) + '^FDGO MANTENIMIENTO^FS',
+        '^FO' + P(6.5) + ',' + P(16) + '^A0N,' + P(3.2) + ',' + P(3.2) + '^FDPREVENTIVO^FS',
+        '^FO' + P(6.5) + ',' + P(23) + '^GB' + P(43) + ',' + P(0.5) + ',' + P(0.5) + '^FS',
+        '^FO' + P(6.5) + ',' + P(28) + '^A0N,' + P(7) + ',' + P(6.2) + '^FD' + codigo + '^FS',
+        // QR a la derecha, lo más grande que permite el alto de la etiqueta
+        '^FO' + P(56) + ',' + P(4.4) + '^BQN,2,' + mag + ',H^FDLA,' + codigo + '^FS',
+        '^XZ'
+      ].join('\n');
+    }).join('\n');
+
+    var blob = new Blob([salida], { type: 'text/plain' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'etiquetas_' + (ultimas[0] || 'go') + '.zpl';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  $('generar').addEventListener('click', generar);
+  $('imprimir').addEventListener('click', function () { window.print(); });
+  $('zpl').addEventListener('click', generarZPL);
+  window.addEventListener('resize', ajustar);
+  ['desde', 'cuantas'].forEach(function (id) {
+    $(id).addEventListener('keydown', function (e) { if (e.key === 'Enter') generar(); });
+  });
+})();
+</script>
+</body>
+</html>
