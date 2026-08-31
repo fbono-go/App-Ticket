@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panel de control · GO Mantenimiento</title>
+<style>
+:root{
+  --tinta:#10161D; --tinta2:#48545F; --tinta3:#8593A0;
+  --papel:#E9EDF1; --chapa:#FFFFFF; --azul:#0060D6; --azul-pal:#DCE8FA;
+  --ambar:#B8791A; --ambar-pal:#FDF2DC; --ambar-bor:#E9CD93;
+  --rojo:#C0372B; --rojo-pal:#FBE6E3; --rojo-bor:#EEBBB4;
+  --verde:#166F45; --verde-pal:#E0F1E8; --verde-bor:#A9D2BC;
+  --linea:#C3CDD6;
+  --mono:ui-monospace,'SF Mono',SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--papel);color:var(--tinta);font-family:var(--sans);font-size:15px;}
+
+/* ── barra superior ─────────────────────────────────────────────── */
+.top{background:var(--tinta);color:#fff;padding:18px 22px 0;border-bottom:4px solid var(--azul);}
+.top-in{max-width:1240px;margin:0 auto;}
+.marca{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;
+  color:#7FA9E8;}
+.top h1{font-size:24px;margin:5px 0 14px;letter-spacing:-.025em;font-weight:800;}
+.filtros{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px;}
+.f label{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.13em;
+  text-transform:uppercase;color:#7E8E9C;margin-bottom:4px;}
+select{padding:8px 10px;border:1px solid #35414D;border-radius:7px;background:#18202A;
+  color:#fff;font-size:14px;font-family:inherit;min-width:160px;}
+select:focus{outline:2px solid var(--azul);outline-offset:1px;}
+.btn{padding:9px 15px;border:0;border-radius:7px;font-size:13.5px;font-weight:700;
+  font-family:inherit;cursor:pointer;background:#243040;color:#BFD5EE;}
+.btn:hover{background:#2C3A4C;}
+.btn.pri{background:var(--azul);color:#fff;}
+.btn.chico{padding:6px 12px;font-size:12.5px;}
+.btn:disabled{opacity:.45;cursor:default;}
+.pestanas{display:flex;gap:2px;}
+.pest{background:none;border:0;color:#8FA0AF;font-family:inherit;font-size:14px;font-weight:600;
+  padding:11px 16px;cursor:pointer;border-bottom:3px solid transparent;}
+.pest.on{color:#fff;border-bottom-color:var(--azul);}
+.pest .n{font-family:var(--mono);font-size:11px;background:var(--rojo);color:#fff;
+  border-radius:9px;padding:1px 6px;margin-left:5px;}
+
+.env{max-width:1240px;margin:0 auto;padding:22px;}
+.vista{display:none;} .vista.on{display:block;}
+
+/* ── tarjetas de resumen ────────────────────────────────────────── */
+.resumen{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+  gap:1px;background:var(--linea);border:1px solid var(--linea);margin-bottom:24px;}
+.kpi{background:var(--chapa);padding:16px 18px;}
+.kpi dt{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--tinta3);margin-bottom:6px;}
+.kpi dd{margin:0;font-family:var(--mono);font-size:32px;font-weight:700;letter-spacing:-.04em;
+  line-height:1;}
+.kpi.r dd{color:var(--rojo);} .kpi.a dd{color:var(--ambar);}
+.kpi.v dd{color:var(--verde);} .kpi.g dd{color:var(--tinta3);}
+.kpi small{display:block;font-size:12px;color:var(--tinta3);margin-top:5px;}
+
+.rotulo{font-family:var(--mono);font-size:10px;letter-spacing:.17em;text-transform:uppercase;
+  color:var(--tinta3);border-bottom:1px solid var(--linea);padding-bottom:6px;margin:0 0 14px;}
+h2{font-size:20px;margin:0 0 4px;letter-spacing:-.02em;}
+.sub{color:var(--tinta2);font-size:14px;margin:0 0 18px;max-width:70ch;}
+
+/* ── tablas ─────────────────────────────────────────────────────── */
+table{width:100%;border-collapse:collapse;background:var(--chapa);
+  border:1px solid var(--linea);font-size:14px;}
+th{background:var(--tinta);color:#fff;font-family:var(--mono);font-size:9.5px;
+  letter-spacing:.12em;text-transform:uppercase;text-align:left;padding:9px 12px;font-weight:700;}
+td{padding:10px 12px;border-top:1px solid var(--linea);vertical-align:top;}
+tr:nth-child(even) td{background:#F7F9FB;}
+td.mono{font-family:var(--mono);font-size:13px;}
+td.num{font-family:var(--mono);text-align:right;}
+
+.pill{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;
+  white-space:nowrap;}
+.pill.r{background:var(--rojo-pal);color:var(--rojo);}
+.pill.a{background:var(--ambar-pal);color:var(--ambar);}
+.pill.v{background:var(--verde-pal);color:var(--verde);}
+.pill.g{background:#EEF1F5;color:var(--tinta2);}
+
+/* ── bandeja ────────────────────────────────────────────────────── */
+.caso{background:var(--chapa);border:1px solid var(--linea);border-left:4px solid var(--ambar);
+  padding:16px 18px;margin-bottom:12px;}
+.caso-cab{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:baseline;}
+.caso-id{font-family:var(--mono);font-size:16px;font-weight:700;}
+.caso-meta{font-size:13px;color:var(--tinta3);}
+.desvio{background:var(--rojo-pal);border-radius:7px;padding:9px 12px;margin:11px 0;
+  font-size:13.5px;}
+.desvio b{font-family:var(--mono);}
+.caso-ubi{font-size:13.5px;color:var(--tinta2);margin:4px 0 0;}
+.caso-acc{display:flex;gap:8px;margin-top:13px;flex-wrap:wrap;align-items:center;}
+.btn.ok{background:var(--verde);color:#fff;}
+.btn.no{background:#EEF1F5;color:var(--tinta2);}
+
+/* ── avisos ─────────────────────────────────────────────────────── */
+.aviso{border-left:4px solid var(--azul);background:var(--chapa);padding:14px 16px;
+  border-radius:0 8px 8px 0;margin-bottom:18px;font-size:14px;line-height:1.55;}
+.aviso.ojo{border-left-color:var(--ambar);background:var(--ambar-pal);}
+.aviso.ok{border-left-color:var(--verde);background:var(--verde-pal);}
+.aviso.mal{border-left-color:var(--rojo);background:var(--rojo-pal);}
+.aviso > b{display:block;margin-bottom:3px;}
+.vacio{background:var(--chapa);border:1px dashed var(--linea);padding:34px;text-align:center;
+  color:var(--tinta3);font-size:14.5px;}
+.cargando{color:var(--tinta3);font-family:var(--mono);font-size:12px;padding:22px 0;}
+
+/* ── barra de cumplimiento ──────────────────────────────────────── */
+.barra{height:9px;background:#E3E8EE;border-radius:5px;overflow:hidden;display:flex;min-width:110px;}
+.barra i{display:block;height:100%;}
+.barra .v{background:var(--verde);} .barra .a{background:#E0A93F;}
+.barra .r{background:var(--rojo);} .barra .g{background:#B9C3CD;}
+
+.pie{margin-top:38px;padding-top:16px;border-top:1px solid var(--linea);
+  font-size:12.5px;color:var(--tinta3);}
+@media (max-width:720px){
+  .caso-cab{flex-direction:column;gap:4px;}
+  table{font-size:13px;} th,td{padding:8px;}
+}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="top-in">
+    <div class="marca">GO Mantenimiento · Grupo Oroño</div>
+    <h1>Panel de control</h1>
+    <div class="filtros">
+      <div class="f">
+        <label for="inst">Institución</label>
+        <select id="inst"><option value="">Todas</option></select>
+      </div>
+      <div class="f">
+        <label for="resp">Responsable</label>
+        <select id="resp">
+          <option value="">Todos</option>
+          <option value="oficial">Mantenimiento propio</option>
+          <option value="texon">Texon</option>
+        </select>
+      </div>
+      <button class="btn pri" id="refrescar" type="button">Actualizar</button>
+      <span class="cargando" id="estado"></span>
+    </div>
+    <div class="pestanas">
+      <button class="pest on" data-v="v-bandeja" type="button">Para revisar <span class="n" id="n-bandeja" style="display:none">0</span></button>
+      <button class="pest" data-v="v-estado" type="button">Estado del parque</button>
+      <button class="pest" data-v="v-zonas" type="button">Zonas</button>
+      <button class="pest" data-v="v-atencion" type="button">Equipos a atender</button>
+      <button class="pest" data-v="v-historial" type="button">Historial</button>
+      <button class="pest" data-v="v-equipo" type="button">Buscar equipo</button>
+    </div>
+  </div>
+</div>
+
+<div class="env">
+
+  <!-- ── bandeja ── -->
+  <section class="vista on" id="v-bandeja">
+    <h2>Correctivos esperando tu decisión</h2>
+    <p class="sub">Cuando una medición se va del límite, el sistema arma el pedido completo
+      y lo deja acá. No se abre solo: vos decidís si va al circuito de trabajo o se descarta.</p>
+    <div id="bandeja"><div class="cargando">Cargando…</div></div>
+  </section>
+
+  <!-- ── estado ── -->
+  <section class="vista" id="v-estado">
+    <h2>Estado del parque</h2>
+    <p class="sub">Cuántos equipos hay en cada situación. El rojo debería ser la excepción:
+      si vive alto, la periodicidad configurada no coincide con la capacidad real.</p>
+    <dl class="resumen" id="resumen"></dl>
+    <div class="rotulo">Cumplimiento por responsable</div>
+    <div id="cumplimiento"><div class="cargando">Cargando…</div></div>
+  </section>
+
+  <!-- ── zonas ── -->
+  <section class="vista" id="v-zonas">
+    <h2>Zonas con trabajo</h2>
+    <p class="sub">Lo mismo que ve el técnico en el celular. Sirve para saber dónde conviene
+      mandar a alguien, y para ver si una zona quedó abandonada.</p>
+    <div id="zonas"><div class="cargando">Cargando…</div></div>
+  </section>
+
+  <!-- ── atención ── -->
+  <section class="vista" id="v-atencion">
+    <h2>Equipos a atender</h2>
+    <p class="sub">Todo lo que no está en verde, ordenado por urgencia. Los que están al día
+      se cuentan pero no se listan.</p>
+    <div id="atencion"><div class="cargando">Cargando…</div></div>
+  </section>
+
+  <!-- ── historial ── -->
+  <section class="vista" id="v-historial">
+    <h2>Historial de correctivos</h2>
+    <p class="sub">Todo lo que se detectó y qué se decidió con cada caso. Los descartados
+      también quedan: es lo que permite revisar después si algo se dejó pasar.</p>
+    <div class="filtros" style="margin:0 0 16px">
+      <div class="f">
+        <label for="hist-estado">Mostrar</label>
+        <select id="hist-estado" style="background:#fff;color:var(--tinta);border-color:var(--linea)">
+          <option value="todos">Todos</option>
+          <option value="en_bandeja">Sin revisar</option>
+          <option value="confirmado">Confirmados</option>
+          <option value="descartado">Descartados</option>
+        </select>
+      </div>
+    </div>
+    <div id="historial"><div class="cargando">Cargando…</div></div>
+  </section>
+
+  <!-- ── ficha de un equipo ── -->
+  <section class="vista" id="v-equipo">
+    <h2>Buscar un equipo</h2>
+    <p class="sub">Todo lo que se le hizo: preventivos, reparaciones y desvíos detectados,
+      en una sola línea de tiempo.</p>
+    <div class="filtros" style="margin:0 0 16px">
+      <div class="f" style="flex:1;min-width:260px">
+        <label for="q-equipo">Código, lugar o tipo de equipo</label>
+        <input id="q-equipo" placeholder="Ej: ICR-AA-0004, internación, split"
+               style="width:100%;padding:9px 11px;border:1px solid var(--linea);
+                      border-radius:7px;font-size:15px;font-family:inherit;background:#fff;
+                      color:var(--tinta)">
+      </div>
+      <button class="btn pri" id="buscar-equipo" type="button">Buscar</button>
+    </div>
+    <div id="resultados"></div>
+    <div id="ficha"></div>
+  </section>
+
+  <div class="pie" id="pie"></div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var PROXY = 'https://gored-proxy-ov5y.onrender.com';
+  var API = PROXY + '/api/preventivo';
+
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  };
+
+  var DATOS = { semaforo: null, bandeja: null, historial: null };
+
+  /* Quién está revisando. Se guarda en el navegador y se manda con cada
+     decisión: sin nombre, registrar "alguien descartó esto" no sirve de nada. */
+  function quienDecide() {
+    var v = '';
+    try { v = localStorage.getItem('prev_panel_usuario') || ''; } catch (e) {}
+    return v;
+  }
+  function guardarQuien(v) {
+    try { localStorage.setItem('prev_panel_usuario', v); } catch (e) {}
+  }
+
+  function pedir(ruta, opciones) {
+    var o = Object.assign({ headers: {} }, opciones || {});
+    if (o.body && typeof o.body !== 'string') {
+      o.body = JSON.stringify(o.body);
+      o.headers['Content-Type'] = 'application/json';
+    }
+    return fetch(API + ruta, o).then(function (r) {
+      return r.text().then(function (txt) {
+        var j = null;
+        try { j = JSON.parse(txt); } catch (e) {}
+        if (!r.ok) throw new Error((j && j.error) || ('HTTP ' + r.status));
+        return j;
+      });
+    });
+  }
+
+  /* ── instituciones ──────────────────────────────────────────── */
+  fetch('./data.json', { cache: 'no-cache' })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      var sel = $('inst');
+      (d.instituciones || []).forEach(function (i) {
+        var o = document.createElement('option');
+        o.value = i.v; o.textContent = i.t;
+        sel.appendChild(o);
+      });
+    })
+    .catch(function () {});
+
+  /* ── carga ──────────────────────────────────────────────────── */
+  function query() {
+    var p = [];
+    if ($('inst').value) p.push('institucion=' + encodeURIComponent($('inst').value));
+    if ($('resp').value) p.push('responsable=' + encodeURIComponent($('resp').value));
+    return p.length ? '?' + p.join('&') : '';
+  }
+
+  function cargar() {
+    $('estado').textContent = 'Consultando…';
+    $('refrescar').disabled = true;
+
+    Promise.all([
+      pedir('/semaforo' + query()),
+      pedir('/bandeja')
+    ]).then(function (r) {
+      DATOS.semaforo = r[0];
+      DATOS.bandeja = r[1];
+      pintarTodo();
+      $('estado').textContent = 'Actualizado ' +
+        new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+    }).catch(function (e) {
+      $('estado').textContent = '';
+      var msg = '<div class="aviso mal"><b>No se pudo consultar el sistema</b>' +
+        esc(e.message) + '. Si el proxy estuvo dormido, puede tardar hasta un minuto en ' +
+        'despertar: probá Actualizar de nuevo.</div>';
+      ['bandeja', 'zonas', 'atencion', 'cumplimiento', 'historial'].forEach(function (id) {
+        $(id).innerHTML = msg;
+      });
+    }).then(function () { $('refrescar').disabled = false; });
+  }
+
+  function pintarTodo() {
+    pintarBandeja();
+    pintarResumen();
+    pintarCumplimiento();
+    pintarZonas();
+    pintarAtencion();
+  }
+
+  /* ── bandeja ────────────────────────────────────────────────── */
+  function pintarBandeja() {
+    var d = DATOS.bandeja || { pendientes: [] };
+    var lista = d.pendientes || [];
+    var n = $('n-bandeja');
+    n.textContent = lista.length;
+    n.style.display = lista.length ? 'inline' : 'none';
+
+    var quien = quienDecide();
+    var pedirNombre = '<div class="aviso ojo"><b>¿Quién está revisando?</b>' +
+      '<p>Cada decisión queda registrada con nombre y fecha. Se escribe una sola vez.</p>' +
+      '<input id="quien" placeholder="Nombre y apellido" value="' + esc(quien) + '" ' +
+      'style="padding:9px 11px;border:1px solid var(--linea);border-radius:7px;' +
+      'font-size:15px;font-family:inherit;width:260px;margin-right:8px">' +
+      '<button class="btn pri chico" id="guardar-quien" type="button">Guardar</button></div>';
+
+    if (!quien) { $('bandeja').innerHTML = pedirNombre; return; }
+
+    if (!lista.length) {
+      $('bandeja').innerHTML = '<div class="vacio">Nada esperando revisión. ' +
+        'Todos los preventivos registrados salieron conformes.</div>';
+      return;
+    }
+
+    $('bandeja').innerHTML = lista.map(function (c) {
+      var desvios = (c.desvios || []).map(function (x) {
+        return '<div class="desvio"><b>' + esc(x.etiqueta || x.campo) + '</b>: ' +
+          esc(x.regla || x.valor) + '</div>';
+      }).join('');
+      var alcance = c.afecta_ambientes
+        ? '<p class="caso-ubi"><b>De este equipo dependen ' + c.afecta_ambientes +
+          ' ambiente' + (c.afecta_ambientes > 1 ? 's' : '') + '.</b></p>'
+        : '';
+      return '<div class="caso" data-id="' + esc(c.correctivo_id) + '">' +
+        '<div class="caso-cab"><span class="caso-id">' + esc(c.equipo_id) + '</span>' +
+        '<span class="caso-meta">' +
+          esc([fechaCorta(c.fecha_deteccion), c.detectado_por].filter(Boolean).join(' · ')) +
+        '</span></div>' +
+        '<p class="caso-ubi">' + esc(c.referencia) + '</p>' +
+        alcance +
+        desvios +
+        '<div class="caso-acc">' +
+        '<button class="btn ok chico" data-acc="confirmado">Confirmar y mandar a trabajo</button>' +
+        '<button class="btn no chico" data-acc="descartado">Descartar</button>' +
+        '<span class="caso-meta" data-msg></span></div></div>';
+    }).join('');
+  }
+
+  function fechaCorta(iso) {
+    var s = String(iso || '');
+    if (!s) return '';
+    // se interpreta la fecha y se muestra en la hora del que mira, en vez de
+    // cortar el texto crudo, que mostraba UTC tal cual venía
+    var d = new Date(s);
+    if (isNaN(d)) return s.slice(0, 16).replace('T', ' ');
+    return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }) +
+           ' ' + d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  document.addEventListener('click', function (e) {
+    if (e.target.id === 'guardar-quien') {
+      var v = ($('quien').value || '').trim();
+      if (v.length < 3) { alert('Escribí tu nombre completo.'); return; }
+      guardarQuien(v);
+      pintarBandeja();
+      return;
+    }
+
+    var b = e.target.closest('[data-acc]');
+    if (!b) return;
+    var caso = b.closest('.caso');
+    var id = caso.getAttribute('data-id');
+    var acc = b.getAttribute('data-acc');
+    var msg = caso.querySelector('[data-msg]');
+
+    // Descartar es la decisión que después nadie recuerda por qué se tomó.
+    // Pedir el motivo cuesta cinco segundos y evita esa conversación.
+    var motivo = '';
+    if (acc === 'descartado') {
+      motivo = prompt('¿Por qué se descarta? Queda registrado.') || '';
+      if (!motivo.trim()) return;
+    }
+
+    caso.querySelectorAll('button').forEach(function (x) { x.disabled = true; });
+    msg.textContent = 'Guardando…';
+
+    pedir('/correctivo/' + encodeURIComponent(id), {
+      method: 'POST',
+      body: { accion: acc, decidido_por: quienDecide(), motivo: motivo.trim() },
+    })
+      .then(function () {
+        caso.style.opacity = '.45';
+        msg.textContent = (acc === 'confirmado' ? 'Confirmado' : 'Descartado') +
+          ' por ' + quienDecide();
+        DATOS.bandeja.pendientes = (DATOS.bandeja.pendientes || [])
+          .filter(function (x) { return x.correctivo_id !== id; });
+        var n = $('n-bandeja');
+        n.textContent = DATOS.bandeja.pendientes.length;
+        n.style.display = DATOS.bandeja.pendientes.length ? 'inline' : 'none';
+        DATOS.historial = null;      // se recarga al abrir el historial
+      })
+      .catch(function (err) {
+        msg.textContent = 'Error: ' + err.message;
+        caso.querySelectorAll('button').forEach(function (x) { x.disabled = false; });
+      });
+  });
+
+  /* ── historial ──────────────────────────────────────────────── */
+  function cargarHistorial() {
+    var estado = $('hist-estado').value;
+    $('historial').innerHTML = '<div class="cargando">Cargando…</div>';
+    var q = '/correctivos' + (estado && estado !== 'todos' ? '?estado=' + estado : '');
+    pedir(q).then(function (r) {
+      DATOS.historial = r;
+      pintarHistorial();
+    }).catch(function (e) {
+      $('historial').innerHTML = '<div class="aviso mal"><b>No se pudo consultar</b>' +
+        esc(e.message) + '</div>';
+    });
+  }
+
+  function pintarHistorial() {
+    var r = DATOS.historial || { correctivos: [], resumen: {} };
+    var lista = r.correctivos || [];
+    if (!lista.length) {
+      $('historial').innerHTML = '<div class="vacio">Todavía no hay correctivos registrados.</div>';
+      return;
+    }
+    var res = r.resumen || {};
+    var cabecera = '<dl class="resumen">' +
+      kpi('Sin revisar', res.en_bandeja || 0, 'a', 'esperando decisión') +
+      kpi('Confirmados', res.confirmado || 0, 'v', 'pasaron a trabajo') +
+      kpi('Descartados', res.descartado || 0, 'g', 'se decidió no intervenir') +
+      '</dl>';
+
+    $('historial').innerHTML = cabecera +
+      '<table><thead><tr><th>Detectado</th><th>Equipo</th><th>Qué falló</th>' +
+      '<th>Quién lo detectó</th><th>Decisión</th><th>Quién decidió</th>' +
+      '<th>Motivo</th></tr></thead><tbody>' +
+      lista.map(function (c) {
+        var pill = c.estado === 'confirmado' ? '<span class="pill v">confirmado</span>'
+          : c.estado === 'descartado' ? '<span class="pill g">descartado</span>'
+          : '<span class="pill a">sin revisar</span>';
+        return '<tr><td class="mono">' + esc(fechaCorta(c.fecha_deteccion)) + '</td>' +
+          '<td class="mono">' + esc(c.equipo_id) + '</td>' +
+          '<td>' + esc(c.que_fallo) + '</td>' +
+          '<td>' + esc(c.detectado_por) + '</td>' +
+          '<td>' + pill + (c.ticket_id ? ' <small>#' + esc(c.ticket_id) + '</small>' : '') + '</td>' +
+          '<td>' + esc(c.decidido_por || '—') +
+            (c.fecha_decision ? '<br><small style="color:var(--tinta3)">' +
+              esc(fechaCorta(c.fecha_decision)) + '</small>' : '') + '</td>' +
+          '<td>' + esc(c.motivo || '—') + '</td></tr>';
+      }).join('') + '</tbody></table>';
+  }
+
+  /* ── resumen ────────────────────────────────────────────────── */
+  function pintarResumen() {
+    var s = DATOS.semaforo || {};
+    var t = s.totales || {};
+    var total = s.total || 0;
+    var hechos = total - (t.gris || 0);
+    var alDia = total ? Math.round(((t.verde || 0) / total) * 100) : 0;
+
+    $('resumen').innerHTML =
+      kpi('Equipos cargados', total, '', 'inventario relevado hasta hoy') +
+      kpi('Vencidos', t.rojo || 0, 'r', 'deberían ser la excepción') +
+      kpi('Vencen en 30 días', t.amarillo || 0, 'a', 'la carga de trabajo real') +
+      kpi('Al día', t.verde || 0, 'v', alDia + ' % del parque') +
+      kpi('Sin registro', t.gris || 0, 'g', 'nunca se les hizo un preventivo');
+  }
+
+  function kpi(titulo, valor, clase, pie) {
+    return '<div class="kpi ' + (clase || '') + '"><dt>' + esc(titulo) + '</dt>' +
+      '<dd>' + valor + '</dd><small>' + esc(pie) + '</small></div>';
+  }
+
+  /* ── cumplimiento por responsable ───────────────────────────── */
+  function pintarCumplimiento() {
+    var s = DATOS.semaforo || {};
+    var zonas = s.zonas || [];
+    if (!zonas.length) {
+      $('cumplimiento').innerHTML = '<div class="vacio">Todavía no hay equipos cargados. ' +
+        'El inventario se construye solo, con cada escaneo.</div>';
+      return;
+    }
+    var t = s.totales || {};
+    var total = s.total || 0;
+    var pend = (t.rojo || 0) + (t.amarillo || 0);
+
+    var texto = '';
+    if (t.rojo > total * 0.25 && total > 20) {
+      texto = '<div class="aviso mal"><b>Más de un cuarto del parque está vencido</b>' +
+        'Con este nivel, o falta capacidad de trabajo o la periodicidad configurada es ' +
+        'más exigente de lo que se puede sostener. Conviene revisar los días de cada equipo ' +
+        'antes de exigir el cumplimiento.</div>';
+    } else if (t.rojo) {
+      texto = '<div class="aviso ojo"><b>' + t.rojo + ' equipo' + (t.rojo > 1 ? 's' : '') +
+        ' vencido' + (t.rojo > 1 ? 's' : '') + '</b>' +
+        'Con el filtro de responsable arriba podés ver si son de mantenimiento propio o del ' +
+        'proveedor. Eso es lo que convierte el tablero en una conversación con fecha y foto.</div>';
+    } else {
+      texto = '<div class="aviso ok"><b>Sin equipos vencidos</b>' +
+        'Todo lo cargado está dentro de su período.</div>';
+    }
+
+    $('cumplimiento').innerHTML = texto +
+      '<table><thead><tr><th>Situación</th><th>Equipos</th><th>Proporción</th></tr></thead><tbody>' +
+      fila('Vencidos', t.rojo || 0, total, 'r') +
+      fila('Vencen en 30 días', t.amarillo || 0, total, 'a') +
+      fila('Al día', t.verde || 0, total, 'v') +
+      fila('Sin registro', t.gris || 0, total, 'g') +
+      '</tbody></table>' +
+      '<p class="sub" style="margin-top:12px">Trabajo pendiente en el próximo mes: <b>' +
+      pend + '</b> equipo' + (pend === 1 ? '' : 's') + '.</p>';
+  }
+
+  function fila(nombre, n, total, clase) {
+    var pct = total ? Math.round((n / total) * 100) : 0;
+    return '<tr><td>' + nombre + '</td><td class="num">' + n + '</td>' +
+      '<td><div class="barra"><i class="' + clase + '" style="width:' + pct + '%"></i></div>' +
+      '<small style="color:var(--tinta3)">' + pct + ' %</small></td></tr>';
+  }
+
+  /* ── zonas ──────────────────────────────────────────────────── */
+  function pintarZonas() {
+    var zonas = (DATOS.semaforo && DATOS.semaforo.zonas) || [];
+    var conTrabajo = zonas.filter(function (z) { return z.rojo || z.amarillo || z.gris; });
+    if (!conTrabajo.length) {
+      $('zonas').innerHTML = '<div class="vacio">No hay zonas con trabajo pendiente.</div>';
+      return;
+    }
+    $('zonas').innerHTML = '<table><thead><tr><th>Lugar</th><th>Piso</th>' +
+      '<th>Vencidos</th><th>En 30 días</th><th>Sin registro</th><th>Total</th>' +
+      '<th>Adelantables</th></tr></thead><tbody>' +
+      conTrabajo.map(function (z) {
+        return '<tr><td>' + esc(z.lugar || '—') + '</td><td>' + esc(z.piso || '—') + '</td>' +
+          '<td class="num">' + (z.rojo ? '<span class="pill r">' + z.rojo + '</span>' : '—') + '</td>' +
+          '<td class="num">' + (z.amarillo ? '<span class="pill a">' + z.amarillo + '</span>' : '—') + '</td>' +
+          '<td class="num">' + (z.gris ? '<span class="pill g">' + z.gris + '</span>' : '—') + '</td>' +
+          '<td class="num">' + z.total + '</td>' +
+          '<td class="num">' + (z.adelantables || '—') + '</td></tr>';
+      }).join('') + '</tbody></table>' +
+      '<p class="sub" style="margin-top:12px">«Adelantables» son equipos que todavía no ' +
+      'vencieron pero les falta poco. Si se hacen en la misma visita, la zona queda alineada ' +
+      'y se deja de ir a ese piso todas las semanas.</p>';
+  }
+
+  /* ── equipos a atender ──────────────────────────────────────── */
+  function pintarAtencion() {
+    var lista = (DATOS.semaforo && DATOS.semaforo.atencion) || [];
+    if (!lista.length) {
+      $('atencion').innerHTML = '<div class="vacio">No hay equipos fuera de término.</div>';
+      return;
+    }
+    $('atencion').innerHTML = '<table><thead><tr><th>Equipo</th><th>Ubicación</th>' +
+      '<th>Responsable</th><th>Último preventivo</th><th>Vence</th><th>Situación</th>' +
+      '</tr></thead><tbody>' +
+      lista.map(function (e) {
+        var dias = e.dias_restantes;
+        var sit = e.semaforo === 'rojo'
+          ? '<span class="pill r">vencido hace ' + Math.abs(dias) + ' d</span>'
+          : e.semaforo === 'amarillo'
+            ? '<span class="pill a">en ' + dias + ' d</span>'
+            : '<span class="pill g">sin registro</span>';
+        return '<tr><td class="mono">' + esc(e.equipo_id) + '</td>' +
+          '<td>' + esc([e.lugar, e.piso ? 'piso ' + e.piso : '', e.ubicacion_detalle]
+            .filter(Boolean).join(' · ')) + '</td>' +
+          '<td>' + esc(e.responsable || 'oficial') + '</td>' +
+          '<td class="mono">' + esc(e.ultimo_preventivo || '—') + '</td>' +
+          '<td class="mono">' + esc(e.proximo_venc || '—') + '</td>' +
+          '<td>' + sit + '</td></tr>';
+      }).join('') + '</tbody></table>';
+  }
+
+  /* ── buscar un equipo ───────────────────────────────────────── */
+  function buscarEquipo() {
+    var q = ($('q-equipo').value || '').trim();
+    $('ficha').innerHTML = '';
+    $('resultados').innerHTML = '<div class="cargando">Buscando…</div>';
+
+    pedir('/equipos?limite=25&q=' + encodeURIComponent(q)).then(function (r) {
+      var l = r.equipos || [];
+      if (!l.length) {
+        $('resultados').innerHTML = '<div class="vacio">No se encontró ningún equipo. ' +
+          'Probá con parte del código o del lugar.</div>';
+        return;
+      }
+      // un solo resultado: se abre directo, que es lo que uno quiere
+      if (l.length === 1) { $('resultados').innerHTML = ''; return verFicha(l[0].equipo_id); }
+
+      $('resultados').innerHTML =
+        '<p class="sub">' + r.total + ' equipo' + (r.total === 1 ? '' : 's') +
+        (r.total > l.length ? ', se muestran los primeros ' + l.length : '') + '</p>' +
+        '<table><thead><tr><th>Equipo</th><th>Tipo</th><th>Ubicación</th>' +
+        '<th>Situación</th></tr></thead><tbody>' +
+        l.map(function (e) {
+          var pill = e.semaforo === 'rojo' ? '<span class="pill r">vencido</span>'
+            : e.semaforo === 'amarillo' ? '<span class="pill a">por vencer</span>'
+            : e.semaforo === 'gris' ? '<span class="pill g">sin registro</span>'
+            : '<span class="pill v">al día</span>';
+          return '<tr style="cursor:pointer" onclick="verFicha(\'' + esc(e.equipo_id) + '\')">' +
+            '<td class="mono">' + esc(e.equipo_id) + '</td>' +
+            '<td>' + esc(e.tipo) + '</td>' +
+            '<td>' + esc([e.lugar, e.piso ? 'piso ' + e.piso : '', e.ubicacion_detalle]
+              .filter(Boolean).join(' · ')) + '</td>' +
+            '<td>' + pill + '</td></tr>';
+        }).join('') + '</tbody></table>';
+    }).catch(function (e) {
+      $('resultados').innerHTML = '<div class="aviso mal"><b>No se pudo buscar</b>' +
+        esc(e.message) + '</div>';
+    });
+  }
+
+  window.verFicha = function (equipoId) {
+    $('ficha').innerHTML = '<div class="cargando">Cargando el historial…</div>';
+    pedir('/historial/' + encodeURIComponent(equipoId)).then(function (r) {
+      var e = r.equipo || {};
+      var res = r.resumen || {};
+      var ubic = [e.lugar, e.piso ? 'piso ' + e.piso : '', e.ubicacion_detalle]
+        .filter(Boolean).join(' · ');
+
+      var cab = '<div class="rotulo">Ficha del equipo</div>' +
+        '<h2 style="font-family:var(--mono)">' + esc(e.equipo_id) + '</h2>' +
+        '<p class="sub">' + esc(e.tipo) + ' · ' + esc(ubic) + ' · ' +
+        esc(e.responsable === 'externo' ? 'proveedor' : 'mantenimiento propio') + '</p>' +
+        '<dl class="resumen">' +
+        kpi('Preventivos', res.preventivos || 0, '', 'hechos hasta hoy') +
+        kpi('Reparaciones', res.trabajos || 0, '', 'y cambios de repuesto') +
+        kpi('Desvíos', res.correctivos || 0, res.correctivos ? 'a' : '', 'detectados en preventivos') +
+        kpi('Vence', e.dias_restantes === null || e.dias_restantes === undefined ? '—'
+              : (e.dias_restantes < 0 ? 'venció' : 'en ' + e.dias_restantes + ' d'),
+            e.semaforo === 'rojo' ? 'r' : e.semaforo === 'amarillo' ? 'a' : 'v',
+            e.proximo_venc || 'sin registro') +
+        '</dl>';
+
+      if (!r.eventos.length) {
+        $('ficha').innerHTML = cab + '<div class="vacio">Todavía no hay nada registrado.</div>';
+        return;
+      }
+
+      $('ficha').innerHTML = cab +
+        '<div class="rotulo">Todo lo que se le hizo</div>' +
+        r.eventos.map(function (ev) {
+          var tipo = ev.clase === 'preventivo'
+              ? (ev.resultado === 'desvio'
+                  ? '<span class="pill a">preventivo con desvío</span>'
+                  : '<span class="pill v">preventivo</span>')
+            : ev.clase === 'intervencion'
+              ? '<span class="pill" style="background:#e6eefb;color:#0060D6">' +
+                esc((ev.tipo_trabajo || 'trabajo').replace(/_/g, ' ')) + '</span>'
+            : ev.clase === 'correctivo'
+              ? '<span class="pill r">desvío detectado</span>'
+              : '<span class="pill g">alta</span>';
+          return '<div class="caso" style="border-left-color:#C3CDD6">' +
+            '<div class="caso-cab">' + tipo +
+            '<span class="caso-meta">' + esc(fechaCorta(ev.fecha)) + '</span></div>' +
+            '<p class="caso-ubi"><b>' + esc(ev.titulo || '') + '</b></p>' +
+            (ev.detalle ? '<p class="caso-ubi">' + esc(ev.detalle) + '</p>' : '') +
+            (ev.extra ? '<p class="caso-ubi">' + esc(ev.extra) + '</p>' : '') +
+            (ev.ticket_id ? '<p class="caso-ubi">Ticket ' + esc(ev.ticket_id) +
+              (ev.ticket_titulo ? ' · ' + esc(ev.ticket_titulo) : '') + '</p>' : '') +
+            (ev.estado ? '<p class="caso-meta">' + esc(ev.estado) +
+              (ev.decidido_por ? ' por ' + esc(ev.decidido_por) : '') + '</p>' : '') +
+            '<p class="caso-meta">' + esc(ev.usuario || '') + '</p></div>';
+        }).join('');
+    }).catch(function (err) {
+      $('ficha').innerHTML = '<div class="aviso mal"><b>No se pudo cargar</b>' +
+        esc(err.message) + '</div>';
+    });
+  };
+
+  /* ── pestañas ───────────────────────────────────────────────── */
+  document.querySelectorAll('.pest').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('.pest').forEach(function (x) { x.classList.remove('on'); });
+      document.querySelectorAll('.vista').forEach(function (x) { x.classList.remove('on'); });
+      b.classList.add('on');
+      var v = b.getAttribute('data-v');
+      $(v).classList.add('on');
+      if (v === 'v-historial' && !DATOS.historial) cargarHistorial();
+      if (v === 'v-equipo') setTimeout(function () { $('q-equipo').focus(); }, 60);
+    });
+  });
+
+  $('hist-estado').addEventListener('change', cargarHistorial);
+  $('buscar-equipo').addEventListener('click', buscarEquipo);
+  $('q-equipo').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') buscarEquipo();
+  });
+  $('refrescar').addEventListener('click', function () { DATOS.historial = null; cargar(); });
+  $('inst').addEventListener('change', cargar);
+  $('resp').addEventListener('change', cargar);
+
+  $('pie').innerHTML = 'Los datos salen de la planilla del preventivo. El panel no escribe ' +
+    'nada salvo cuando confirmás o descartás un caso de la bandeja.';
+
+  cargar();
+})();
+</script>
+</body>
+</html>
