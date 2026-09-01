@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etiquetas · Preventivo QR</title>
+<style>
+:root{
+  --tinta:#10161D; --tinta2:#48545F; --tinta3:#8593A0;
+  --papel:#E9EDF1; --chapa:#FFFFFF; --azul:#0060D6; --azul-pal:#DCE8FA;
+  --ambar:#B8791A; --ambar-pal:#FDF2DC; --rojo:#C0372B; --linea:#C3CDD6;
+  --mono:ui-monospace,'SF Mono',SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--papel);color:var(--tinta);font-family:var(--sans);font-size:15px;}
+
+/* ── panel de control ───────────────────────────────────────────── */
+.panel{background:var(--tinta);color:#fff;padding:26px 22px;border-bottom:5px solid var(--azul);}
+.panel-in{max-width:1080px;margin:0 auto;}
+.marca{font-family:var(--mono);font-size:10px;letter-spacing:.22em;text-transform:uppercase;
+  color:#7FA9E8;margin-bottom:10px;}
+h1{font-size:30px;margin:0 0 6px;letter-spacing:-.03em;font-weight:800;}
+.sub{color:#B4C2CE;font-size:14px;margin:0 0 22px;max-width:60ch;}
+
+.campos{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;align-items:end;}
+label{display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;
+  text-transform:uppercase;color:#7E8E9C;margin-bottom:5px;}
+select,input{width:100%;padding:9px 10px;border:1px solid #35414D;border-radius:7px;
+  background:#18202A;color:#fff;font-size:15px;font-family:inherit;}
+input[type=number]{font-family:var(--mono);}
+select:focus,input:focus{outline:2px solid var(--azul);outline-offset:1px;}
+.acciones{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;align-items:center;}
+button{padding:11px 18px;border:0;border-radius:8px;font-size:14px;font-weight:700;
+  font-family:inherit;cursor:pointer;background:var(--azul);color:#fff;}
+button.sec{background:#243040;color:#BFD5EE;}
+button:disabled{opacity:.4;cursor:default;}
+.cuenta{font-family:var(--mono);font-size:12px;color:#7E8E9C;}
+
+.env{max-width:1080px;margin:0 auto;padding:24px 22px 70px;}
+.aviso{border-left:4px solid var(--ambar);background:var(--ambar-pal);padding:14px 16px;
+  border-radius:0 8px 8px 0;margin-bottom:22px;font-size:14px;line-height:1.55;}
+.aviso > b{display:block;margin-bottom:4px;}
+.aviso ol{margin:8px 0 0;padding-left:20px;}
+.aviso li{margin-bottom:4px;}
+
+.rotulo{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--tinta3);border-bottom:1px solid var(--linea);padding-bottom:6px;margin-bottom:16px;}
+
+/* ── hoja de etiquetas ──────────────────────────────────────────── */
+.hoja{
+  background:#fff;width:210mm;min-height:297mm;padding:10mm;margin:0 auto 18px;
+  box-shadow:0 6px 22px rgba(16,22,29,.14);
+  display:grid;align-content:start;justify-content:start;
+}
+.et{
+  border:0.4mm dashed #C9D2DB;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:1.6mm 1mm;text-align:center;overflow:hidden;
+}
+.et canvas{display:block;image-rendering:pixelated;}
+.et .cod{
+  font-family:var(--mono);font-weight:700;letter-spacing:.02em;line-height:1;
+  margin-top:1.2mm;white-space:nowrap;
+}
+.et .pie{font-family:var(--sans);color:#5A6472;line-height:1;margin-top:.8mm;white-space:nowrap;}
+
+.previa{overflow:auto;padding-bottom:8px;}
+.zoom{transform-origin:top left;}
+
+@media print{
+  @page{size:A4;margin:0;}
+  body{background:#fff;}
+  .panel,.env > *:not(.previa),.previa .rotulo{display:none!important;}
+  .env{padding:0;max-width:none;}
+  .previa{overflow:visible;padding:0;}
+  .zoom{transform:none!important;}
+  .hoja{box-shadow:none;margin:0;width:210mm;height:297mm;page-break-after:always;}
+  .hoja:last-child{page-break-after:auto;}
+  .et{border-color:#DDE3EA;}
+}
+</style>
+</head>
+<body>
+
+<div class="panel">
+  <div class="panel-in">
+    <div class="marca">GO Mantenimiento · Grupo Oroño</div>
+    <h1>Generador de etiquetas</h1>
+    <p class="sub">Imprime las etiquetas con el código QR y el número legible.
+      Se pegan sobre el equipo y son la puerta de entrada de todo el sistema.</p>
+
+    <div class="campos">
+      <div>
+        <label for="inst">Institución</label>
+        <select id="inst"></select>
+      </div>
+      <div>
+        <label for="tipo">Tipo de equipo</label>
+        <select id="tipo">
+          <optgroup label="Equipos autónomos">
+            <option value="AA">AA · Split · unidad interior</option>
+            <option value="AE">AE · Split · unidad exterior</option>
+            <option value="RT">RT · Rooftop / compacto</option>
+            <option value="CA">CA · Cortina de aire</option>
+          </optgroup>
+          <optgroup label="Generación">
+            <option value="VE">VE · VRF · unidad exterior</option>
+            <option value="ME">ME · Multi-split · unidad exterior</option>
+            <option value="CH">CH · Chiller</option>
+          </optgroup>
+          <optgroup label="Distribución">
+            <option value="BO">BO · Bomba de circulación</option>
+          </optgroup>
+          <optgroup label="Terminales">
+            <option value="VI">VI · VRF · unidad interior</option>
+            <option value="FC">FC · Fancoil</option>
+          </optgroup>
+          <optgroup label="Tratamiento de aire">
+            <option value="UT">UT · UTA</option>
+          </optgroup>
+          <optgroup label="Otros equipos">
+            <option value="CI">CI · Cama de internación</option>
+            <option value="SR">SR · Silla de ruedas</option>
+          </optgroup>
+        </select>
+      </div>
+      <div>
+        <label for="desde">Desde el número</label>
+        <input id="desde" type="number" inputmode="numeric" min="1" max="9999" value="1" oninput="ultimasDesdeManual=true">
+        <div id="desde-aviso" style="font-size:11px;color:#7E8E9C;margin-top:4px;min-height:14px;"></div>
+      </div>
+      <div>
+        <label for="cuantas">Cuántas etiquetas</label>
+        <input id="cuantas" type="number" inputmode="numeric" min="1" max="600" value="40">
+      </div>
+      <div>
+        <label for="mm">Lado del QR</label>
+        <select id="mm">
+          <option value="14">14 mm · mínimo</option>
+          <option value="18" selected>18 mm · recomendado</option>
+          <option value="24">24 mm · equipos altos</option>
+          <option value="32">32 mm · lectura a distancia</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="acciones">
+      <button id="generar" type="button">Generar</button>
+      <button id="imprimir" type="button" class="sec" disabled>Imprimir</button>
+      <span class="cuenta" id="cuenta"></span>
+    </div>
+  </div>
+</div>
+
+<div class="env">
+
+  <div class="aviso">
+    <b>Antes de imprimir, tres cosas</b>
+    <ol>
+      <li>En el diálogo de impresión, poné la escala en <b>100 %</b>. Si dejás "Ajustar a
+        la página", las etiquetas salen más chicas y el celular no las lee.</li>
+      <li>Desactivá <b>encabezados y pies de página</b>, o te van a imprimir la URL encima.</li>
+      <li>Imprimí <b>una hoja de prueba en papel común</b> y medí un cuadrado con la regla
+        antes de gastar vinilo.</li>
+    </ol>
+  </div>
+
+  <div class="aviso" style="border-left-color:var(--azul);background:var(--azul-pal)">
+    <b>Sobre el material</b>
+    Vinilo autoadhesivo laminado. En papel común el alcohol de la limpieza hospitalaria
+    borra la tinta en pocas semanas. La laminación es lo que protege la impresión del roce
+    y del alcohol.
+  </div>
+
+  <div class="previa">
+    <div class="rotulo" id="titulo">Elegí las opciones y tocá Generar</div>
+    <div class="zoom" id="zoom"></div>
+  </div>
+</div>
+
+<script src="./qrgen.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var MM = 3.7795275591;           // 1 mm en píxeles CSS a 96 dpi
+  var ESCALA_CANVAS = 8;           // se dibuja grande y se achica: bordes nítidos al imprimir
+  var NIVEL = 'H';                 // máxima corrección de errores: la etiqueta se raya
+  var HOJA_MM = 190;               // 210 menos 10 de margen por lado
+  var ALTO_MM = 277;
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  /* ── instituciones desde data.json, con respaldo si no está a mano ── */
+  var RESPALDO = [
+    { v: 13, t: 'Instituto Cardiovascular Rosario', c: 'ICR' },
+    { v: 12, t: 'Sanatorio Parque', c: 'SP' },
+    { v: 15, t: 'Sanatorio de Niños', c: 'SDN' },
+    { v: 14, t: 'Diagnóstico Médico Oroño', c: 'DMO' },
+    { v: 33, t: 'Grupo Oroño', c: 'GO' },
+    { v: 132, t: 'Medicina Esencial', c: 'ME' },
+    { v: 138, t: 'GO Gastro', c: 'GG' }
+  ];
+
+  // El código corto sale del nombre; el respaldo ya los trae fijos para que
+  // coincidan con los que usa el resto del sistema.
+  function codigoDe(nombre) {
+    var fijos = {
+      'instituto cardiovascular rosario': 'ICR', 'sanatorio parque': 'SP',
+      'sanatorio de niños': 'SDN', 'diagnóstico médico oroño': 'DMO',
+      'grupo oroño': 'GO', 'medicina esencial sa': 'ME', 'go gastro': 'GG'
+    };
+    var k = String(nombre).toLowerCase().trim();
+    if (fijos[k]) return fijos[k];
+    return k.split(/\s+/).map(function (p) { return p[0]; }).join('')
+            .toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+  }
+
+  var MAPA_INST = {};   // código corto -> id numérico de institución
+  function llenarInstituciones(lista) {
+    var sel = $('inst');
+    MAPA_INST = {};
+    lista.forEach(function (i) { MAPA_INST[i.c] = i.v; });
+    sel.innerHTML = lista.map(function (i) {
+      return '<option value="' + i.c + '">' + i.c + ' · ' + i.t + '</option>';
+    }).join('');
+  }
+
+  var PROXY = window.__PREV_PROXY_TEST || 'https://gored-proxy-ov5y.onrender.com/api/preventivo';
+
+  /**
+   * Consulta cuál es el último número usado para esta institución y tipo, y
+   * sugiere el siguiente en "Desde el número". Sin esto, saber por dónde
+   * seguir imprimiendo obliga a abrir la planilla y buscar a mano.
+   */
+  var ultimasDesdeManual = false;
+  var sugiriendoVersion = 0;
+  function sugerirDesde() {
+    var cod = $('inst').value;
+    var prefijo = $('tipo').value;
+    var campo = $('desde');
+    var aviso = $('desde-aviso');
+    if (!cod || !prefijo) return;
+
+    var instId = MAPA_INST[cod];
+    if (!instId) { if (aviso) aviso.textContent = ''; return; }
+
+    if (aviso) aviso.textContent = 'Consultando el último número usado…';
+    var propia = ++sugiriendoVersion;
+    fetch(PROXY + '/ultimo-numero?institucion=' + encodeURIComponent(instId) +
+          '&prefijo=' + encodeURIComponent(prefijo))
+      .then(function (r) { return r.json(); })
+      .then(function (r) {
+        if (propia !== sugiriendoVersion) return;   // el usuario ya cambió la selección
+        if (!r.ok) { if (aviso) aviso.textContent = ''; return; }
+        if (!ultimasDesdeManual) campo.value = r.siguiente_numero;
+        if (aviso) {
+          aviso.textContent = r.encontrados
+            ? 'Ya hay ' + r.encontrados + ' etiqueta(s) ' + prefijo + ' en esta institución. ' +
+              'El último es ' + cod + '-' + prefijo + '-' + String(r.ultimo_numero).padStart(4, '0') +
+              '. Se sugiere seguir desde ' + r.siguiente_numero + '.'
+            : 'No hay ninguna etiqueta ' + prefijo + ' todavía en esta institución. Se arranca en 1.';
+        }
+      })
+      .catch(function () {
+        if (propia !== sugiriendoVersion) return;
+        if (aviso) aviso.textContent = 'No se pudo consultar el último número. Revisalo en la planilla.';
+      });
+  }
+
+  fetch('./data.json', { cache: 'no-cache' })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      var lista = (d.instituciones || []).map(function (i) {
+        return { v: i.v, t: i.t, c: codigoDe(i.t) };
+      });
+      llenarInstituciones(lista.length ? lista : RESPALDO);
+      sugerirDesde();
+    })
+    .catch(function () { llenarInstituciones(RESPALDO); sugerirDesde(); });
+
+  /* ── una etiqueta ──────────────────────────────────────────────── */
+  function dibujarQR(codigo, ladoMm) {
+    var qr = qrcode(0, NIVEL);
+    qr.addData(codigo);
+    qr.make();
+    var n = qr.getModuleCount();
+
+    // El "quiet zone" no es decoración: sin ese margen blanco alrededor,
+    // muchos lectores no encuentran el código.
+    var quiet = 4;
+    var total = n + quiet * 2;
+    var px = total * ESCALA_CANVAS;
+
+    var c = document.createElement('canvas');
+    c.width = c.height = px;
+    var ctx = c.getContext('2d');
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, px, px);
+    ctx.fillStyle = '#000';
+    for (var f = 0; f < n; f++) {
+      for (var col = 0; col < n; col++) {
+        if (qr.isDark(f, col)) {
+          ctx.fillRect((col + quiet) * ESCALA_CANVAS, (f + quiet) * ESCALA_CANVAS,
+                       ESCALA_CANVAS, ESCALA_CANVAS);
+        }
+      }
+    }
+    // el ancho impreso incluye el quiet zone, que es parte del código
+    var anchoMm = ladoMm * (total / n);
+    c.style.width = anchoMm + 'mm';
+    c.style.height = anchoMm + 'mm';
+    return { canvas: c, anchoMm: anchoMm };
+  }
+
+  function etiqueta(codigo, ladoMm) {
+    var d = document.createElement('div');
+    d.className = 'et';
+    var q = dibujarQR(codigo, ladoMm);
+    d.appendChild(q.canvas);
+
+    var cod = document.createElement('div');
+    cod.className = 'cod';
+    cod.textContent = codigo;
+    // el texto escala con el QR: en etiquetas chicas tiene que seguir leyéndose
+    cod.style.fontSize = Math.max(2.0, ladoMm * 0.155) + 'mm';
+    d.appendChild(cod);
+
+    var pie = document.createElement('div');
+    pie.className = 'pie';
+    pie.textContent = 'GO Mantenimiento';
+    pie.style.fontSize = Math.max(1.4, ladoMm * 0.085) + 'mm';
+    d.appendChild(pie);
+
+    return { nodo: d, anchoMm: q.anchoMm };
+  }
+
+  /* ── armado de las hojas ───────────────────────────────────────── */
+  function generar() {
+    var cod = $('inst').value;
+    var tipo = $('tipo').value;
+    var desde = Math.max(1, parseInt($('desde').value, 10) || 1);
+    var cuantas = Math.min(600, Math.max(1, parseInt($('cuantas').value, 10) || 1));
+    var ladoMm = parseFloat($('mm').value);
+
+    var muestra = etiqueta('XXX-XX-0000', ladoMm);
+    var anchoEt = muestra.anchoMm + 3;              // + aire para el corte
+    var altoEt = muestra.anchoMm + ladoMm * 0.42 + 3;
+
+    var cols = Math.max(1, Math.floor(HOJA_MM / anchoEt));
+    var filas = Math.max(1, Math.floor(ALTO_MM / altoEt));
+    var porHoja = cols * filas;
+    var hojas = Math.ceil(cuantas / porHoja);
+
+    var zoom = $('zoom');
+    zoom.innerHTML = '';
+
+    for (var h = 0; h < hojas; h++) {
+      var hoja = document.createElement('div');
+      hoja.className = 'hoja';
+      hoja.style.gridTemplateColumns = 'repeat(' + cols + ', ' + anchoEt + 'mm)';
+      hoja.style.gridAutoRows = altoEt + 'mm';
+
+      for (var i = 0; i < porHoja; i++) {
+        var n = h * porHoja + i;
+        if (n >= cuantas) break;
+        var numero = String(desde + n).padStart(4, '0');
+        hoja.appendChild(etiqueta(cod + '-' + tipo + '-' + numero, ladoMm).nodo);
+      }
+      zoom.appendChild(hoja);
+    }
+
+    var ultimo = String(desde + cuantas - 1).padStart(4, '0');
+    $('titulo').textContent = cuantas + ' etiquetas · ' + cod + '-' + tipo + '-' +
+      String(desde).padStart(4, '0') + ' a ' + cod + '-' + tipo + '-' + ultimo +
+      ' · ' + hojas + (hojas > 1 ? ' hojas A4' : ' hoja A4');
+    $('cuenta').textContent = porHoja + ' por hoja (' + cols + ' × ' + filas + ')';
+    $('imprimir').disabled = false;
+    ajustarZoom();
+  }
+
+  // La hoja se dibuja en A4 real; en pantalla se achica para que entre
+  function ajustarZoom() {
+    var disponible = $('zoom').parentNode.clientWidth;
+    var anchoHoja = 210 * MM;
+    var f = Math.min(1, disponible / anchoHoja);
+    $('zoom').style.transform = 'scale(' + f + ')';
+    $('zoom').style.height = ($('zoom').scrollHeight * f) + 'px';
+  }
+
+  $('inst').addEventListener('change', function () { ultimasDesdeManual = false; sugerirDesde(); });
+  $('tipo').addEventListener('change', function () { ultimasDesdeManual = false; sugerirDesde(); });
+  $('generar').addEventListener('click', generar);
+  $('imprimir').addEventListener('click', function () { window.print(); });
+  window.addEventListener('resize', ajustarZoom);
+  ['desde', 'cuantas'].forEach(function (id) {
+    $(id).addEventListener('keydown', function (e) { if (e.key === 'Enter') generar(); });
+  });
+})();
+</script>
+</body>
+</html>
