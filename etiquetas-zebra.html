@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Etiquetas Zebra · Preventivo QR</title>
+<script>
+/* Se entra por mantenimiento.html, que pide la clave. */
+(function () {
+  var c = '';
+  try { c = localStorage.getItem('go_admin_clave') || ''; } catch (e) { /* nada */ }
+  if (!c) location.replace('mantenimiento.html?volver=etiquetas-zebra.html');
+})();
+</script>
 <style>
 :root{
   --tinta:#10161D; --tinta2:#48545F; --tinta3:#8593A0;
@@ -17,6 +25,7 @@ body{margin:0;background:var(--papel);color:var(--tinta);font-family:var(--sans)
 
 .panel{background:var(--tinta);color:#fff;padding:26px 22px;border-bottom:5px solid var(--azul);}
 .panel-in{max-width:1080px;margin:0 auto;}
+.inicio{display:inline-block;color:#8DB4EE;text-decoration:none;font-weight:600;font-size:14px;margin-bottom:12px;}
 .marca{font-family:var(--mono);font-size:10px;letter-spacing:.22em;text-transform:uppercase;
   color:#7FA9E8;margin-bottom:10px;}
 h1{font-size:29px;margin:0 0 5px;letter-spacing:-.03em;font-weight:800;}
@@ -98,6 +107,7 @@ button:disabled{opacity:.4;cursor:default;}
 
 <div class="panel">
   <div class="panel-in">
+    <a class="inicio" href="mantenimiento.html">← Inicio</a>
     <div class="marca">GO Mantenimiento · Grupo Oroño</div>
     <h1>Etiquetas Zebra · 100 × 50 mm</h1>
     <p class="sub">Preparado para la GC420t con rollo de 100 mm de ancho.
@@ -107,32 +117,19 @@ button:disabled{opacity:.4;cursor:default;}
       <div><label for="inst">Institución</label><select id="inst"></select></div>
       <div><label for="tipo">Tipo de equipo</label>
         <select id="tipo">
-          <optgroup label="Equipos autónomos">
-            <option value="AA">AA · Split · unidad interior</option>
-            <option value="RT">RT · Rooftop / compacto</option>
-            <option value="CA">CA · Cortina de aire</option>
-          </optgroup>
-          <optgroup label="Generación">
-            <option value="VE">VE · VRF · unidad exterior</option>
-            <option value="AE">AE · Split · unidad exterior</option>
-            <option value="ME">ME · Multi-split · unidad exterior</option>
-            <option value="CH">CH · Chiller</option>
-          </optgroup>
-          <optgroup label="Distribución">
-            <option value="BO">BO · Bomba de circulación</option>
-          </optgroup>
-          <optgroup label="Terminales">
-            <option value="VI">VI · VRF · unidad interior</option>
-            <option value="FC">FC · Fancoil</option>
-          </optgroup>
-          <optgroup label="Tratamiento de aire">
-            <option value="UT">UT · UTA</option>
-          </optgroup>
-          <optgroup label="Otros">
-            <option value="AS">AS · Ascensor</option>
-            <option value="CI">CI · Cama de internación</option>
-            <option value="SR">SR · Silla de ruedas</option>
-          </optgroup>
+          <!-- Respaldo si el servidor no responde. La lista real se lee de la planilla al abrir. -->
+          <option value="AA">AA · Split · unidad interior</option>
+          <option value="AE">AE · Split · unidad exterior (condensadora)</option>
+          <option value="ME">ME · Multi-split · unidad exterior</option>
+          <option value="VE">VE · VRF · unidad exterior</option>
+          <option value="VI">VI · VRF · unidad interior</option>
+          <option value="CH">CH · Chiller (planta enfriadora)</option>
+          <option value="BO">BO · Bomba de circulación</option>
+          <option value="FC">FC · Fancoil</option>
+          <option value="RT">RT · Rooftop / compacto de conductos</option>
+          <option value="UT">UT · UTA (unidad de tratamiento de aire)</option>
+          <option value="CA">CA · Cortina de aire</option>
+          <option value="AS">AS · Ascensor</option>
         </select>
       </div>
       <div><label for="desde">Desde el número</label>
@@ -417,6 +414,41 @@ button:disabled{opacity:.4;cursor:default;}
   }
 
   var ultimasDesdeManual = false;
+  /**
+   * Los tipos salen del catálogo de la planilla, el mismo que usa la app.
+   * Antes estaban escritos acá a mano y se desfasaron: ofrecía tipos que no
+   * existían (una etiqueta impresa que después no se puede dar de alta) y le
+   * faltaban otros. Un tipo nuevo creado en Checklists aparece solo.
+   */
+  var GRUPOS = [['generacion', 'Generación'], ['distribucion', 'Distribución'], ['terminal', 'Terminales'],
+    ['tratamiento_aire', 'Tratamiento de aire'], ['equipo_completo', 'Equipos completos'], ['', 'Otros']];
+  function escHtml(t) {
+    return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; });
+  }
+  fetch(PROXY + '/tipos')
+    .then(function (r) { return r.json(); })
+    .then(function (r) {
+      var tipos = (r && r.tipos || []).filter(function (t) { return /^[A-Z]{2}$/.test(String(t.prefijo_qr || '').toUpperCase()); });
+      if (!tipos.length) return;
+      var sel = $('tipo');
+      var antes = sel.value;
+      var html = GRUPOS.map(function (g) {
+        var del = tipos.filter(function (t) {
+          var f = t.funcion || '';
+          return g[0] ? f === g[0] : !GRUPOS.some(function (x) { return x[0] && x[0] === f; });
+        }).sort(function (a, b) { return String(a.nombre).localeCompare(String(b.nombre)); });
+        if (!del.length) return '';
+        return '<optgroup label="' + g[1] + '">' + del.map(function (t) {
+          var p = String(t.prefijo_qr).toUpperCase();
+          return '<option value="' + p + '">' + p + ' · ' + escHtml(t.nombre) + '</option>';
+        }).join('') + '</optgroup>';
+      }).join('');
+      sel.innerHTML = html;
+      if (Array.prototype.some.call(sel.options, function (o) { return o.value === antes; })) sel.value = antes;
+      if (sel.value !== antes) { ultimasDesdeManual = false; sugerirDesde(); }
+    })
+    .catch(function () { /* queda la lista de respaldo */ });
+
   $('inst').addEventListener('change', function () { ultimasDesdeManual = false; sugerirDesde(); });
   $('tipo').addEventListener('change', function () { ultimasDesdeManual = false; sugerirDesde(); });
   $('generar').addEventListener('click', generar);
