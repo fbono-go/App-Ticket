@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>GO Mantenimiento · Preventivo</title>
+<style>
+:root{
+  --tinta:#10161D; --tinta2:#48545F; --tinta3:#5A6672;
+  --papel:#E9EDF1; --chapa:#FFFFFF; --azul:#0060D6; --azul-pal:#DCE8FA;
+  --rojo:#B03226; --rojo-pal:#FBE6E3; --linea:#C3CDD6;
+  --mono:ui-monospace,'SF Mono',SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--papel);color:var(--tinta);font-family:var(--sans);font-size:15px;min-height:100vh;}
+.top{background:var(--tinta);color:#fff;padding:34px 16px 38px;border-bottom:5px solid var(--azul);}
+.in{max-width:1080px;margin:0 auto;}
+.fila{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;}
+.marca{font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:#8DB4EE;}
+.sesion{font-size:14px;color:#B4C2CE;display:flex;gap:10px;align-items:center;}
+.sesion button{background:none;border:1px solid #3A4755;color:#fff;border-radius:7px;padding:6px 12px;
+  font:inherit;font-size:13px;font-weight:600;cursor:pointer;}
+h1{margin:14px 0 6px;font-size:clamp(30px,5vw,42px);font-weight:800;letter-spacing:-.03em;}
+.sub{margin:0;color:#B4C2CE;font-size:17px;max-width:60ch;}
+.env{max-width:1080px;margin:0 auto;padding:32px 16px 60px;}
+
+.tarjetas{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:22px;}
+.tj{display:flex;flex-direction:column;gap:12px;background:var(--chapa);border:1px solid var(--linea);
+  border-radius:14px;padding:28px;color:var(--tinta);text-decoration:none;min-height:240px;
+  transition:border-color .15s, box-shadow .15s;}
+.tj:hover,.tj:focus-visible{border-color:var(--azul);box-shadow:0 6px 22px rgba(16,22,29,.10);outline:none;}
+.ico{width:54px;height:54px;border-radius:12px;background:var(--azul-pal);display:flex;align-items:center;justify-content:center;}
+.tj h2{margin:4px 0 0;font-size:24px;letter-spacing:-.02em;}
+.tj p{margin:0;color:var(--tinta2);line-height:1.5;}
+.tj .ir{margin-top:auto;font-family:var(--mono);font-size:13px;color:var(--azul);font-weight:600;}
+.pie{margin-top:28px;color:var(--tinta3);font-size:14px;}
+
+.login{max-width:420px;margin:10px auto 0;background:var(--chapa);border:1px solid var(--linea);border-radius:14px;padding:28px;}
+.login h2{margin:0 0 6px;font-size:22px;}
+.login p{margin:0 0 18px;color:var(--tinta2);line-height:1.5;}
+label{display:block;font-weight:700;font-size:14px;margin:14px 0 6px;}
+input{width:100%;font:inherit;font-size:17px;padding:11px 12px;border:1px solid #A9B6C2;border-radius:8px;}
+input:focus{outline:2px solid var(--azul);outline-offset:1px;}
+.ayuda{font-size:13px;color:var(--tinta3);margin-top:5px;}
+.pri{margin-top:20px;width:100%;border:0;background:var(--azul);color:#fff;font:inherit;font-weight:700;font-size:16px;
+  padding:13px;border-radius:9px;cursor:pointer;}
+.pri:disabled{opacity:.55;cursor:default;}
+.error{margin-top:14px;background:var(--rojo-pal);color:var(--rojo);border-radius:8px;padding:10px 12px;font-weight:600;font-size:14px;}
+.oculto{display:none!important;}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="in">
+    <div class="fila">
+      <div class="marca">GO Mantenimiento · Grupo Oroño</div>
+      <div class="sesion oculto" id="sesion">
+        <span id="quien"></span>
+        <button type="button" id="salir">Salir</button>
+      </div>
+    </div>
+    <h1>Mantenimiento preventivo</h1>
+    <p class="sub">Lo que se administra desde el escritorio, en un solo lugar.</p>
+  </div>
+</header>
+
+<main class="env">
+
+  <form class="login oculto" id="login" autocomplete="on">
+    <h2>Entrar</h2>
+    <p>Una sola vez por navegador. En esta computadora queda recordado hasta que toques «Salir».</p>
+    <label for="nombre">Tu nombre</label>
+    <input id="nombre" name="nombre" autocomplete="name" required maxlength="60">
+    <div class="ayuda">Queda anotado en cada cambio que hagas en los checklists.</div>
+    <label for="clave">Clave</label>
+    <input id="clave" name="clave" type="password" autocomplete="current-password" required>
+    <button class="pri" type="submit" id="entrar">Entrar</button>
+    <div class="error oculto" id="error" role="alert"></div>
+  </form>
+
+  <div class="oculto" id="menu">
+    <div class="tarjetas">
+      <a class="tj" href="panel-preventivo.html">
+        <div class="ico"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0060D6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg></div>
+        <h2>Panel de control</h2>
+        <p>Bandeja para revisar, estado del parque, zonas e historial de cada equipo.</p>
+        <span class="ir">Abrir →</span>
+      </a>
+      <a class="tj" href="etiquetas.html">
+        <div class="ico"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0060D6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg></div>
+        <h2>Crear etiquetas</h2>
+        <p>Hojas A4 con el QR y el código legible, listas para imprimir.</p>
+        <span class="ir">Abrir →</span>
+      </a>
+      <a class="tj" href="checklists.html">
+        <div class="ico"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0060D6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12l2 2 4-4M9 17h6"/></svg></div>
+        <h2>Checklists</h2>
+        <p>Tipos de equipo, sus preguntas y cuándo avisa cada una. Lo que cambies lo ven los técnicos en la próxima carga.</p>
+        <span class="ir">Abrir →</span>
+      </a>
+    </div>
+    <p class="pie">La planilla sigue siendo la base de datos. Nada de acá borra información: lo que se retira queda en el historial.</p>
+  </div>
+</main>
+
+<script>
+(function () {
+  'use strict';
+  var PROXY = 'https://gored-proxy-ov5y.onrender.com/api/preventivo';
+  var K_CLAVE = 'go_admin_clave';
+  var K_NOMBRE = 'go_admin_nombre';
+
+  function leer(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
+  function guardar(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* sin almacenamiento: dura la pestaña */ } }
+  function borrar(k) { try { localStorage.removeItem(k); } catch (e) { /* nada */ } }
+  var $ = function (id) { return document.getElementById(id); };
+  var memoria = { clave: leer(K_CLAVE), nombre: leer(K_NOMBRE) };
+
+  // si llegó desde otra página protegida, vuelve ahí al entrar
+  var volver = new URLSearchParams(location.search).get('volver') || '';
+  if (!/^[a-z0-9-]+\.html$/.test(volver)) volver = '';
+
+  function verificar(clave) {
+    var ctrl = new AbortController();
+    var t = setTimeout(function () { ctrl.abort(); }, 90000);   // Render dormido tarda en despertar
+    return fetch(PROXY + '/admin/verificar', {
+      method: 'POST', headers: { Authorization: 'Clave ' + clave }, signal: ctrl.signal,
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        if (r.ok && j.ok) return true;
+        throw new Error(j.error || ('Error ' + r.status));
+      });
+    }).finally(function () { clearTimeout(t); });
+  }
+
+  function mostrarMenu() {
+    if (volver) { location.replace(volver); return; }
+    $('login').classList.add('oculto');
+    $('menu').classList.remove('oculto');
+    $('sesion').classList.remove('oculto');
+    $('quien').textContent = memoria.nombre;
+  }
+  function mostrarLogin(msg) {
+    $('menu').classList.add('oculto');
+    $('sesion').classList.add('oculto');
+    $('login').classList.remove('oculto');
+    $('nombre').value = memoria.nombre;
+    if (msg) { $('error').textContent = msg; $('error').classList.remove('oculto'); }
+    ($('nombre').value ? $('clave') : $('nombre')).focus();
+  }
+
+  $('login').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var nombre = $('nombre').value.trim();
+    var clave = $('clave').value;
+    if (!nombre || !clave) return;
+    $('error').classList.add('oculto');
+    // la clave viaja en un encabezado HTTP: ahí no entran acentos ni ñ
+    if (/[^\x20-\x7E]/.test(clave)) {
+      $('error').textContent = 'La clave no puede tener acentos ni ñ.';
+      $('error').classList.remove('oculto');
+      return;
+    }
+    $('entrar').disabled = true;
+    $('entrar').textContent = 'Verificando…';
+    var lento = setTimeout(function () { $('entrar').textContent = 'Despertando el servidor, puede tardar un minuto…'; }, 4000);
+    verificar(clave).then(function () {
+      memoria = { clave: clave, nombre: nombre };
+      guardar(K_CLAVE, clave);
+      guardar(K_NOMBRE, nombre);
+      $('clave').value = '';
+      mostrarMenu();
+    }).catch(function (e) {
+      $('error').textContent = e.name === 'AbortError' ? 'El servidor no respondió. Probá de nuevo.' : e.message;
+      $('error').classList.remove('oculto');
+    }).finally(function () {
+      clearTimeout(lento);
+      $('entrar').disabled = false;
+      $('entrar').textContent = 'Entrar';
+    });
+  });
+
+  $('salir').addEventListener('click', function () {
+    borrar(K_CLAVE);
+    memoria.clave = '';
+    mostrarLogin();
+  });
+
+  if (!memoria.clave || !memoria.nombre) {
+    mostrarLogin();
+  } else {
+    mostrarMenu();
+    // se revisa en segundo plano: si la clave cambió en Render, pide la nueva
+    verificar(memoria.clave).catch(function (e) {
+      if (/Clave incorrecta/.test(e.message)) {
+        borrar(K_CLAVE);
+        memoria.clave = '';
+        mostrarLogin('La clave cambió. Ingresá la nueva.');
+      }
+    });
+  }
+})();
+</script>
+</body>
+</html>

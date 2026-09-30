@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Checklists · GO Mantenimiento</title>
+<script>
+/* Se entra por mantenimiento.html, que pide la clave. */
+(function () {
+  var c = '';
+  try { c = localStorage.getItem('go_admin_clave') || ''; } catch (e) { /* nada */ }
+  if (!c) location.replace('mantenimiento.html?volver=checklists.html');
+})();
+</script>
+<style>
+:root{
+  --tinta:#10161D; --tinta2:#48545F; --tinta3:#5A6672;
+  --papel:#E9EDF1; --chapa:#FFFFFF; --gris:#F4F6F8; --linea:#C3CDD6; --linea2:#E1E6EB; --borde:#A9B6C2;
+  --azul:#0060D6; --azul-osc:#004BA8; --azul-pal:#DCE8FA;
+  --ambar:#B8791A; --ambar-txt:#7A5210; --ambar-pal:#FDF2DC;
+  --rojo:#B03226; --rojo-pal:#FBE6E3; --verde:#166F45; --verde-pal:#E0F1E8;
+  --mono:ui-monospace,'SF Mono',SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
+}
+*{box-sizing:border-box;}
+html,body{height:100%;}
+body{margin:0;background:var(--papel);color:var(--tinta);font-family:var(--sans);font-size:15px;display:flex;flex-direction:column;}
+button{font:inherit;color:inherit;}
+.oculto{display:none!important;}
+
+/* ── barra superior ── */
+.top{background:var(--tinta);color:#fff;padding:14px 20px;border-bottom:4px solid var(--azul);display:flex;align-items:center;gap:18px;flex-wrap:wrap;}
+.top a{color:#8DB4EE;text-decoration:none;font-weight:600;}
+.top h1{margin:0;font-size:22px;font-weight:800;letter-spacing:-.02em;}
+.top .der{margin-left:auto;display:flex;gap:12px;align-items:center;color:#B4C2CE;font-size:14px;}
+.top .der button{background:none;border:1px solid #3A4755;color:#fff;border-radius:7px;padding:5px 11px;font-size:13px;font-weight:600;cursor:pointer;}
+
+.cuerpo{flex:1;min-height:0;display:grid;grid-template-columns:232px minmax(0,1fr);}
+.lado{background:var(--chapa);border-right:1px solid var(--linea);overflow-y:auto;padding:14px 0 30px;}
+.principal{overflow-y:auto;min-width:0;}
+
+/* ── lista de tipos ── */
+.lado .nuevo{margin:0 14px 12px;width:calc(100% - 28px);}
+.grupo{font-family:var(--mono);font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--tinta3);padding:14px 16px 6px;}
+.ti{display:flex;gap:10px;align-items:center;width:100%;border:0;background:none;text-align:left;padding:8px 16px;cursor:pointer;border-left:3px solid transparent;}
+.ti:hover{background:var(--gris);}
+.ti.on{background:var(--azul-pal);border-left-color:var(--azul);}
+.ti .pre{font-family:var(--mono);font-weight:700;font-size:12.5px;background:var(--papel);border-radius:5px;padding:2px 6px;min-width:30px;text-align:center;}
+.ti .nom{font-weight:600;line-height:1.25;}
+.ti .det{display:block;font-size:12.5px;color:var(--tinta3);font-weight:400;}
+
+/* ── botones ── */
+.b{border:1px solid var(--borde);background:var(--chapa);border-radius:8px;padding:9px 14px;font-weight:600;cursor:pointer;}
+.b:hover{border-color:var(--tinta3);}
+.b.pri{background:var(--azul);border-color:var(--azul);color:#fff;font-weight:700;}
+.b.pri:hover{background:var(--azul-osc);}
+.b:disabled{opacity:.45;cursor:not-allowed;}
+.b.chico{padding:6px 11px;font-size:13.5px;}
+.b.peligro{color:var(--rojo);}
+.pill{border:1px solid var(--borde);background:var(--chapa);border-radius:8px;padding:8px 13px;font-weight:600;font-size:14.5px;cursor:pointer;}
+.pill.on{background:var(--azul);border-color:var(--azul);color:#fff;}
+.pill:disabled{opacity:.45;cursor:not-allowed;}
+.pills{display:flex;gap:7px;flex-wrap:wrap;}
+
+/* ── vista de un tipo ── */
+.cab{padding:22px 26px 16px;background:var(--chapa);border-bottom:1px solid var(--linea);}
+.cab h2{margin:0;font-size:26px;letter-spacing:-.02em;display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center;}
+.chip{background:var(--papel);border-radius:999px;padding:4px 11px;font-size:13.5px;color:var(--tinta2);}
+.chip.mono{font-family:var(--mono);font-weight:700;color:var(--tinta);border-radius:6px;}
+.aviso{border-radius:9px;padding:11px 14px;font-size:14px;line-height:1.45;margin-top:12px;}
+.aviso.amb{background:var(--ambar-pal);color:var(--ambar-txt);}
+.aviso.az{background:var(--azul-pal);color:#123E73;}
+.aviso.rj{background:var(--rojo-pal);color:var(--rojo);}
+
+.dos{display:grid;grid-template-columns:320px minmax(0,1fr);gap:18px;padding:18px 22px 40px;align-items:start;}
+.caja{background:var(--chapa);border:1px solid var(--linea);border-radius:12px;}
+.caja-cab{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--linea2);}
+.caja-cab h3{margin:0;font-size:16px;}
+.lista{padding:6px 0;}
+.pr{display:flex;align-items:center;margin:1px 6px;border-radius:8px;}
+.pr.on{background:var(--azul-pal);box-shadow:inset 3px 0 0 var(--azul);}
+.pr .sel{flex:1;min-width:0;border:0;background:none;text-align:left;padding:8px 6px 8px 10px;cursor:pointer;display:flex;gap:9px;align-items:baseline;}
+.pr .n{font-family:var(--mono);font-size:12px;color:var(--tinta3);width:20px;flex-shrink:0;text-align:right;}
+.pr .et{font-weight:600;line-height:1.25;display:block;}
+.pr .sb{font-size:12.5px;color:var(--tinta3);display:block;margin-top:2px;}
+.pr .sb.avisa{color:var(--ambar-txt);}
+.pr.her .et{color:var(--tinta2);font-weight:500;}
+.pr .flechas{display:flex;flex-direction:column;padding-right:4px;}
+.pr .flechas button{border:0;background:none;cursor:pointer;color:var(--tinta3);font-size:11px;padding:2px 7px;line-height:1;}
+.pr .flechas button:disabled{opacity:.25;cursor:default;}
+.retiradas{border-top:1px solid var(--linea2);padding:10px 14px;}
+.retiradas summary{cursor:pointer;font-size:14px;color:var(--tinta2);font-weight:600;}
+.ret{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;font-size:14px;color:var(--tinta2);}
+
+/* ── editor de una pregunta ── */
+.editor{padding:20px 22px;display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:22px;align-items:start;}
+.form{display:flex;flex-direction:column;gap:18px;min-width:0;}
+.campo label,.lbl{display:block;font-weight:700;font-size:14.5px;margin-bottom:6px;}
+.campo .nota{font-size:13px;color:var(--tinta3);margin-top:5px;}
+input[type=text],input[type=number],textarea,select{font:inherit;font-size:16px;padding:9px 11px;border:1px solid var(--borde);border-radius:8px;background:#fff;color:var(--tinta);width:100%;}
+input:focus,textarea:focus,select:focus{outline:2px solid var(--azul);outline-offset:1px;}
+input:disabled{background:var(--gris);color:var(--tinta3);}
+.num{font-family:var(--mono);font-weight:600;}
+.w-chico{width:110px!important;}
+.fila{display:flex;gap:22px;align-items:flex-end;flex-wrap:wrap;}
+.switch{display:inline-flex;gap:10px;align-items:center;border:0;background:none;cursor:pointer;padding:6px 0;font-size:15px;}
+.switch .pista{width:42px;height:24px;border-radius:999px;background:var(--borde);position:relative;transition:background .15s;flex-shrink:0;}
+.switch .pista::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .15s;}
+.switch[aria-pressed=true] .pista{background:var(--azul);}
+.switch[aria-pressed=true] .pista::after{left:21px;}
+.regla{background:var(--gris);border:1px solid #D5DCE3;border-radius:12px;padding:18px 20px;display:flex;flex-direction:column;gap:13px;}
+.regla h4{margin:0;font-size:17px;}
+.valores{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:16px;}
+.frase{font-size:16.5px;font-weight:700;}
+.frase.err{color:var(--rojo);}
+.guarda{font-size:13px;color:var(--tinta3);}
+.guarda code{font-family:var(--mono);color:var(--tinta);background:none;}
+.probar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;border-top:1px dashed var(--linea);padding-top:12px;}
+.res{font-weight:700;}
+.res.si{color:var(--ambar-txt);} .res.no{color:var(--verde);}
+.op{display:flex;gap:8px;align-items:center;}
+.op input{flex:1;max-width:340px;}
+.tag{border:1px solid var(--borde);background:#fff;border-radius:8px;padding:7px 11px;font-weight:600;font-size:13.5px;cursor:pointer;width:112px;color:var(--tinta2);}
+.tag.on{border-color:var(--ambar);background:var(--ambar-pal);color:var(--ambar-txt);}
+.x{border:0;background:none;font-size:20px;color:var(--tinta3);cursor:pointer;padding:2px 8px;}
+.acciones{display:flex;gap:10px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--linea2);padding-top:16px;}
+.acciones .der{margin-left:auto;}
+.nota-precarga{font-size:13.5px;color:var(--tinta2);background:var(--gris);border-radius:8px;padding:9px 12px;}
+
+/* ── vista previa ── */
+.previa{position:sticky;top:14px;}
+.previa .rot{font-family:var(--mono);font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--tinta3);text-align:center;margin-bottom:8px;}
+.tel{background:var(--tinta);border-radius:36px;padding:11px;}
+.pant{background:var(--papel);border-radius:27px;overflow:hidden;min-height:470px;}
+.pant .bar{background:#fff;padding:18px 16px 10px;border-bottom:1px solid #D5DCE3;}
+.pant .bar b{font-family:var(--mono);font-size:13px;}
+.pant .bar span{display:block;font-size:12.5px;color:var(--tinta3);}
+.pant .q{background:#fff;border:1px solid #D5DCE3;border-radius:12px;padding:13px;margin:14px 12px;display:flex;flex-direction:column;gap:9px;}
+.pant .q .t{font-weight:700;line-height:1.3;}
+.pant .q .a{font-size:12.5px;color:var(--tinta3);line-height:1.4;}
+.pant .caja-num{display:flex;align-items:center;gap:8px;padding:9px 11px;border-radius:9px;background:#fff;border:1px solid var(--borde);}
+.pant .caja-num.si{border:2px solid var(--ambar);} .pant .caja-num.no{border:2px solid var(--verde);}
+.pant .caja-num b{font-family:var(--mono);font-size:21px;flex:1;}
+.pant .caja-num span{font-family:var(--mono);color:var(--tinta3);}
+.pant .sn{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.pant .sn span,.pant .ch{border:1px solid var(--borde);border-radius:9px;padding:10px;text-align:center;font-weight:700;background:#fff;}
+.pant .chs{display:flex;flex-wrap:wrap;gap:6px;}
+.pant .ch{border-radius:999px;padding:7px 11px;font-size:13.5px;}
+.pant .foto{border:1px dashed var(--tinta3);border-radius:9px;padding:14px;text-align:center;font-weight:600;color:var(--tinta2);}
+.pant .txt{height:64px;border:1px solid var(--borde);border-radius:9px;background:#fff;}
+.pant .pie{font-size:12px;color:var(--tinta3);text-align:center;}
+
+/* ── formulario de tipo ── */
+.tform{max-width:860px;margin:22px 26px 40px;padding:26px 30px;}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 22px;}
+.grid2 .ancho{grid-column:1/-1;}
+.ok{color:var(--verde);font-weight:700;font-size:14px;}
+.mal{color:var(--rojo);font-weight:700;font-size:14px;}
+
+.vacio{padding:60px 30px;text-align:center;color:var(--tinta2);}
+.vacio h2{color:var(--tinta);margin:0 0 8px;}
+.cargando{padding:60px;text-align:center;color:var(--tinta2);}
+
+#toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--tinta);color:#fff;padding:12px 18px;border-radius:10px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.25);z-index:9;max-width:90vw;}
+#toast.err{background:var(--rojo);}
+
+@media (max-width:1180px){
+  .editor{grid-template-columns:minmax(0,1fr);}
+  .previa{position:static;max-width:280px;}
+}
+@media (max-width:980px){
+  .cuerpo{grid-template-columns:minmax(0,1fr);}
+  .lado{border-right:0;border-bottom:1px solid var(--linea);max-height:240px;}
+  .dos{grid-template-columns:minmax(0,1fr);padding:16px;}
+  .cab{padding:18px 16px;}
+  .editor{padding:16px;}
+  .tform{margin:16px;padding:20px;}
+  .grid2{grid-template-columns:minmax(0,1fr);}
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <a href="mantenimiento.html">← Inicio</a>
+  <h1>Checklists</h1>
+  <div class="der"><span id="autor"></span><button type="button" id="salir">Salir</button></div>
+</header>
+
+<div class="cuerpo">
+  <nav class="lado" id="lado" aria-label="Tipos de equipo"></nav>
+  <main class="principal" id="principal"><div class="cargando">Cargando el catálogo…</div></main>
+</div>
+<div id="toast" class="oculto" role="status"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  var PROXY = 'https://gored-proxy-ov5y.onrender.com/api/preventivo';
+  var K_CLAVE = 'go_admin_clave', K_NOMBRE = 'go_admin_nombre';
+
+  function leer(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
+  var CLAVE = leer(K_CLAVE), AUTOR = leer(K_NOMBRE);
+  var $ = function (id) { return document.getElementById(id); };
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function numero(x) {
+    if (x === '' || x === null || x === undefined) return null;
+    var n = Number(String(x).replace(',', '.'));
+    return isFinite(n) ? n : null;
+  }
+  var fmt = function (x) { return String(x).replace('.', ','); };
+
+  $('autor').textContent = AUTOR;
+  $('salir').onclick = function () {
+    try { localStorage.removeItem(K_CLAVE); } catch (e) { /* nada */ }
+    location.href = 'mantenimiento.html';
+  };
+
+  var toastT = 0;
+  function toast(msg, error) {
+    var t = $('toast');
+    t.textContent = msg;
+    t.className = error ? 'err' : '';
+    clearTimeout(toastT);
+    toastT = setTimeout(function () { t.className = 'oculto'; }, error ? 6000 : 2800);
+  }
+
+  function api(ruta, cuerpo) {
+    var ctrl = new AbortController();
+    var t = setTimeout(function () { ctrl.abort(); }, 90000);
+    var h = { Authorization: 'Clave ' + CLAVE };
+    if (cuerpo) h['Content-Type'] = 'application/json';
+    if (cuerpo) cuerpo.autor = AUTOR;
+    return fetch(PROXY + ruta, {
+      method: cuerpo ? 'POST' : 'GET', headers: h, signal: ctrl.signal,
+      body: cuerpo ? JSON.stringify(cuerpo) : undefined,
+    }).then(function (r) {
+      return r.json().catch(function () { return { ok: false, error: 'Respuesta inválida del servidor (' + r.status + ')' }; })
+        .then(function (j) {
+          if (r.status === 401) {
+            try { localStorage.removeItem(K_CLAVE); } catch (e) { /* nada */ }
+            location.replace('mantenimiento.html?volver=checklists.html');
+          }
+          if (!j.ok) throw new Error(j.error || ('Error ' + r.status));
+          return j;
+        });
+    }, function (e) {
+      throw new Error(e.name === 'AbortError' ? 'El servidor no respondió. Probá de nuevo.' : 'Sin conexión con el servidor');
+    }).finally(function () { clearTimeout(t); });
+  }
+
+  /* ════════════════ estado ════════════════ */
+  var CAT = null;           // { tipos, campos, refs }
+  var CATEG = [], SUBCAT = {};
+  var S = { vista: 'inicio', tipo: null, campo: null, F: null, base: '', ocupado: false, prueba: { v: '', ref: '' } };
+
+  var TIPOS_RESP = [['si_no', 'Sí / No'], ['opciones', 'Opciones'], ['numero', 'Número'], ['texto', 'Texto'], ['foto', 'Foto']];
+  var NOMBRE_RESP = { si_no: 'Sí / No', opciones: 'Opciones', numero: 'Número', texto: 'Texto', foto: 'Foto', calculado: 'Calculado' };
+
+  // desempate por nombre interno: la lista y las flechas tienen que coincidir siempre
+  function porOrden(a, b) { return (a.orden - b.orden) || (a.campo_id < b.campo_id ? -1 : a.campo_id > b.campo_id ? 1 : 0); }
+  function tipoDe(id) { return CAT.tipos.find(function (t) { return t.tipo_id === id; }) || null; }
+  function cadena(id) {
+    var out = [], vistos = {};
+    while (id && !vistos[id]) { vistos[id] = 1; out.push(id); var t = tipoDe(id); id = t ? t.hereda_de : ''; }
+    return out;
+  }
+  function propias(tipoId, activas) {
+    return CAT.campos.filter(function (c) { return c.tipo_id === tipoId && c.activo === activas; })
+      .sort(porOrden);
+  }
+  /** El checklist como lo ve el técnico: heredadas + propias, la propia pisa a la heredada. */
+  function checklist(tipoId) {
+    var mapa = {};
+    cadena(tipoId).reverse().forEach(function (id) {
+      propias(id, true).forEach(function (c) { mapa[c.campo_id] = c; });
+    });
+    return Object.keys(mapa).map(function (k) { return mapa[k]; }).sort(porOrden);
+  }
+  function nombreTipo(id) { var t = tipoDe(id); return t ? (id === 'base_general' ? 'Bloque común' : t.nombre.replace(/^FUNCIÓN · /, '')) : id; }
+  // una pregunta nueva cuenta como cambio recién cuando tiene algo escrito
+  var hayCambios = function () {
+    if (!S.F) return false;
+    return S.F.campo_id ? JSON.stringify(S.F) !== S.base : S.F.etiqueta.trim() !== '';
+  };
+
+  function seguirSiHayCambios() {
+    return !hayCambios() || confirm('Hay cambios sin guardar en esta pregunta. ¿Descartarlos?');
+  }
+  window.addEventListener('beforeunload', function (e) { if (hayCambios()) { e.preventDefault(); e.returnValue = ''; } });
+
+  /* ════════════════ reglas (espejo de las del servidor) ════════════════ */
+  function reglaCorta(c) {
+    var r = c.regla || { op: 'nunca' }, u = c.unidad ? ' ' + c.unidad : '';
+    switch (r.op) {
+      case 'no': return 'avisa si es No';
+      case 'menor': return 'avisa si < ' + fmt(r.a) + u;
+      case 'mayor': return 'avisa si > ' + fmt(r.a) + u;
+      case 'fuera': return 'avisa fuera de ' + fmt(r.a) + '–' + fmt(r.b) + u;
+      case 'sobre_ref': return 'avisa si supera ' + fmt(r.pct) + '% de la chapa';
+      case 'bajo_ref': return 'avisa si cae ' + fmt(r.pct) + '% del nominal';
+      case 'opciones':
+        var ts = (c.opciones || []).filter(function (o) { return r.valores.indexOf(o.v) >= 0; }).map(function (o) { return o.t; });
+        return 'avisa: ' + (ts.join(', ') || r.valores.join(', '));
+      case 'invalida': return '⚠ regla inválida: hoy no avisa';
+      case 'otra': return 'regla especial';
+      default: return 'solo registro';
+    }
+  }
+
+  /** Arma frase, texto guardado y error a partir del formulario. */
+  function analizar(F) {
+    var r = F.regla, tc = F.tipo_campo, u = F.unidad ? ' ' + F.unidad : '';
+    var numerico = tc === 'numero' || tc === 'calculado';
+    var a = numero(r.a), b = numero(r.b), pct = numero(r.pct);
+    var out = { frase: 'Queda registrado. Nunca genera un aviso.', guarda: '(vacío)', error: '' };
+
+    if (!F.etiqueta.trim()) out.error = 'Falta escribir la pregunta.';
+    if (tc === 'opciones') {
+      var ops = F.opciones.filter(function (o) { return o.t.trim(); });
+      var marcadas = ops.filter(function (o) { return o.avisa; });
+      if (ops.length < 2) out.error = out.error || 'Una pregunta de opciones necesita al menos dos.';
+      else if (marcadas.length === ops.length) out.error = out.error || 'Si todas las respuestas avisan, la pregunta no sirve.';
+      var vistos = {};
+      ops.forEach(function (o) { var k = o.t.trim().toLowerCase(); if (vistos[k]) out.error = out.error || 'Hay una opción repetida.'; vistos[k] = 1; });
+      if (F.original) out.error = out.error || 'Marcá qué respuestas avisan para reemplazar la regla actual.';
+      if (marcadas.length) {
+        out.frase = 'Avisa si responde: ' + marcadas.map(function (o) { return o.t.trim(); }).join(' o ') + '.';
+        out.guarda = marcadas.some(function (o) { return !o.v; }) ? 'se arma al guardar'
+          : 'si es ' + marcadas.map(function (o) { return o.v; }).join(' o ');
+      }
+      return out;
+    }
+    if (tc === 'texto' || tc === 'foto') { out.frase = 'Las respuestas de texto y foto se registran pero no avisan.'; return out; }
+
+    switch (r.op) {
+      case 'no': out.frase = 'Avisa si la respuesta es No.'; out.guarda = 'si es No'; break;
+      case 'menor': case 'mayor':
+        if (a === null) { out.error = out.error || 'Falta el valor.'; break; }
+        out.frase = 'Avisa si el valor es ' + r.op + ' a ' + fmt(a) + u + '.'; out.guarda = r.op + ' a ' + a; break;
+      case 'fuera':
+        if (a === null || b === null) { out.error = out.error || 'Faltan los dos valores del rango.'; break; }
+        if (a >= b) { out.error = out.error || 'El mínimo tiene que ser menor que el máximo.'; break; }
+        out.frase = 'Avisa si el valor queda fuera de ' + fmt(a) + ' a ' + fmt(b) + u + '.';
+        out.guarda = 'fuera de ' + a + ' a ' + b; break;
+      case 'sobre_ref': case 'bajo_ref':
+        if (!CAT.refs[r.ref]) { out.error = out.error || 'Elegí contra qué dato del equipo se compara.'; break; }
+        if (pct === null || pct <= 0 || pct > 500) { out.error = out.error || 'El porcentaje va de 1 a 500.'; break; }
+        out.frase = r.op === 'sobre_ref'
+          ? 'Avisa si supera en más de ' + fmt(pct) + '% el valor cargado en el equipo (' + CAT.refs[r.ref] + ').'
+          : 'Avisa si cae más de ' + fmt(pct) + '% por debajo del valor cargado en el equipo (' + CAT.refs[r.ref] + ').';
+        out.guarda = (r.op === 'sobre_ref' ? 'supera ' : 'cae ') + pct + '% de ' + r.ref; break;
+      case 'invalida': case 'otra':
+        out.error = out.error || 'Elegí una regla nueva: la actual no se puede editar acá.'; break;
+      default: break;
+    }
+    if (!out.error && tc === 'numero' && numero(F.min) !== null && numero(F.max) !== null && numero(F.min) >= numero(F.max)) {
+      out.error = 'El límite de tipeo mínimo tiene que ser menor que el máximo.';
+    }
+    return out;
+  }
+
+  /** ¿Avisaría con este valor? null si no se puede decir. */
+  function probar(F) {
+    var r = F.regla, v = numero(S.prueba.v);
+    if (v === null) return null;
+    var a = numero(r.a), b = numero(r.b), pct = numero(r.pct), ref = numero(S.prueba.ref);
+    switch (r.op) {
+      case 'menor': return a === null ? null : v < a;
+      case 'mayor': return a === null ? null : v > a;
+      case 'fuera': return a === null || b === null ? null : (v < a || v > b);
+      case 'sobre_ref': return ref === null || ref <= 0 || pct === null ? null : v > ref * (1 + pct / 100);
+      case 'bajo_ref': return ref === null || ref <= 0 || pct === null ? null : v < ref * (1 - pct / 100);
+      default: return null;
+    }
+  }
+
+  /* ════════════════ barra lateral ════════════════ */
+  function pintarLado() {
+    var equipos = CAT.tipos.filter(function (t) { return !t.bloque && t.activo; })
+      .sort(function (a, b) { return a.nombre.localeCompare(b.nombre); });
+    var bloques = CAT.tipos.filter(function (t) { return t.bloque; })
+      .sort(function (a, b) { return (a.tipo_id === 'base_general' ? -1 : 0) || a.nombre.localeCompare(b.nombre); });
+    var retirados = CAT.tipos.filter(function (t) { return !t.bloque && !t.activo; });
+
+    function item(t) {
+      var n = checklist(t.tipo_id).length;
+      var det = t.bloque ? 'lo usan ' + t.usado_por.length + ' tipos' : t.equipos + ' equipos · ' + n + ' preguntas';
+      return '<button type="button" class="ti' + (S.tipo === t.tipo_id ? ' on' : '') + '" data-tipo="' + esc(t.tipo_id) + '">' +
+        (t.bloque ? '' : '<span class="pre">' + esc(t.prefijo_qr) + '</span>') +
+        '<span class="nom">' + esc(t.bloque ? nombreTipo(t.tipo_id) : t.nombre) + '<span class="det">' + esc(det) + '</span></span></button>';
+    }
+    $('lado').innerHTML =
+      '<button type="button" class="b pri nuevo" id="nuevoTipo">+ Nuevo tipo</button>' +
+      '<div class="grupo">Tipos de equipo</div>' + equipos.map(item).join('') +
+      '<div class="grupo">Bloques compartidos</div>' + bloques.map(item).join('') +
+      (retirados.length ? '<div class="grupo">Retirados</div>' + retirados.map(item).join('') : '');
+
+    $('nuevoTipo').onclick = function () { if (seguirSiHayCambios()) abrirTipoForm(null); };
+    Array.prototype.forEach.call($('lado').querySelectorAll('[data-tipo]'), function (b) {
+      b.onclick = function () { if (seguirSiHayCambios()) abrirTipo(b.getAttribute('data-tipo')); };
+    });
+  }
+
+  /* ════════════════ vista de un tipo ════════════════ */
+  function abrirTipo(id, campoId) {
+    S.vista = 'tipo'; S.tipo = id; S.F = null; S.base = '';
+    S.campo = campoId || null;
+    if (campoId) prepararForm(campoId);
+    pintarLado();
+    pintar();
+  }
+
+  function pintar() {
+    if (S.vista === 'tipoForm') return pintarTipoForm();
+    if (S.vista !== 'tipo' || !tipoDe(S.tipo)) {
+      $('principal').innerHTML = '<div class="vacio"><h2>Elegí un tipo de equipo</h2>' +
+        '<p>O creá uno nuevo con el botón de la izquierda.</p></div>';
+      return;
+    }
+    var t = tipoDe(S.tipo);
+    var cab;
+    if (t.bloque) {
+      var usan = t.usado_por.map(nombreTipo);
+      cab = '<div class="cab"><h2>' + esc(nombreTipo(t.tipo_id)) + '</h2>' +
+        '<div class="aviso amb"><b>Bloque compartido.</b> Sus preguntas aparecen en ' + usan.length + ' tipos' +
+        (usan.length ? ' (' + esc(usan.join(', ')) + ')' : '') + ' y en ' + t.equipos_afectados +
+        ' equipos. Un cambio acá les llega a todos.</div></div>';
+    } else {
+      cab = '<div class="cab"><h2>' + esc(t.nombre) + ' <span class="chip mono">' + esc(t.prefijo_qr) + '</span>' +
+        (t.activo ? '' : ' <span class="chip">retirado</span>') + '</h2><div class="chips">' +
+        '<span class="chip">cada ' + esc(t.periodicidad_default) + ' días</span>' +
+        '<span class="chip">' + t.equipos + ' equipos</span>' +
+        '<span class="chip">toma preguntas de: ' + esc(nombreTipo(t.hereda_de)) + '</span>' +
+        (t.categoria ? '<span class="chip">correctivo → ' + esc(t.categoria + (t.subcategoria ? ' › ' + t.subcategoria : '')) + '</span>' : '') +
+        '<button type="button" class="b chico" id="editarTipo">Editar datos del tipo</button></div></div>';
+    }
+    $('principal').innerHTML = cab + '<div class="dos"><section class="caja" id="lista"></section><section class="caja" id="panel"></section></div>';
+    if ($('editarTipo')) $('editarTipo').onclick = function () { if (seguirSiHayCambios()) abrirTipoForm(t.tipo_id); };
+    pintarLista();
+    pintarPanel();
+  }
+
+  function pintarLista() {
+    var items = checklist(S.tipo);
+    var mias = items.filter(function (c) { return c.tipo_id === S.tipo; });
+    var html = '<div class="caja-cab"><h3>Preguntas (' + items.length + ')</h3>' +
+      '<button type="button" class="b pri chico" id="nuevaPregunta">+ Nueva</button></div><div class="lista">';
+    items.forEach(function (c, i) {
+      var mia = c.tipo_id === S.tipo;
+      var k = mias.indexOf(c);
+      var avisa = c.regla && c.regla.op !== 'nunca';
+      html += '<div class="pr' + (mia ? '' : ' her') + (S.campo === c.campo_id ? ' on' : '') + '">' +
+        '<button type="button" class="sel" data-campo="' + esc(c.campo_id) + '"><span class="n">' + (i + 1) + '</span><span>' +
+        '<span class="et">' + esc(c.etiqueta) + '</span>' +
+        '<span class="sb' + (avisa ? ' avisa' : '') + '">' + esc(NOMBRE_RESP[c.tipo_campo] || c.tipo_campo) + ' · ' + esc(reglaCorta(c)) +
+        (mia ? '' : ' · de ' + esc(nombreTipo(c.tipo_id))) + '</span></span></button>' +
+        (mia ? '<span class="flechas"><button type="button" aria-label="Subir" data-mover="' + k + '" data-d="-1"' + (k === 0 || S.ocupado ? ' disabled' : '') + '>▲</button>' +
+          '<button type="button" aria-label="Bajar" data-mover="' + k + '" data-d="1"' + (k === mias.length - 1 || S.ocupado ? ' disabled' : '') + '>▼</button></span>' : '') +
+        '</div>';
+    });
+    html += '</div>';
+    var ret = propias(S.tipo, false);
+    if (ret.length) {
+      html += '<details class="retiradas"><summary>Retiradas (' + ret.length + ')</summary>' + ret.map(function (c) {
+        return '<div class="ret"><span>' + esc(c.etiqueta) + '</span><button type="button" class="b chico" data-reactivar="' +
+          esc(c.campo_id) + '">Volver a activar</button></div>';
+      }).join('') + '</details>';
+    }
+    $('lista').innerHTML = html;
+
+    $('nuevaPregunta').onclick = function () {
+      if (!seguirSiHayCambios()) return;
+      S.campo = '__nueva'; prepararForm(null); pintarLista(); pintarPanel();
+      $('f-etiqueta') && $('f-etiqueta').focus();
+    };
+    Array.prototype.forEach.call($('lista').querySelectorAll('[data-campo]'), function (b) {
+      b.onclick = function () {
+        var id = b.getAttribute('data-campo');
+        if (id === S.campo || !seguirSiHayCambios()) return;
+        S.campo = id; prepararForm(id); pintarLista(); pintarPanel();
+      };
+    });
+    Array.prototype.forEach.call($('lista').querySelectorAll('[data-mover]'), function (b) {
+      b.onclick = function () { mover(Number(b.getAttribute('data-mover')), Number(b.getAttribute('data-d'))); };
+    });
+    Array.prototype.forEach.call($('lista').querySelectorAll('[data-reactivar]'), function (b) {
+      b.onclick = function () { cambiarActivo(b.getAttribute('data-reactivar'), true); };
+    });
+  }
+
+  function mover(k, d) {
+    if (!seguirSiHayCambios()) return;
+    var ids = propias(S.tipo, true).map(function (c) { return c.campo_id; });
+    var j = k + d;
+    if (j < 0 || j >= ids.length) return;
+    var x = ids[k]; ids[k] = ids[j]; ids[j] = x;
+    S.ocupado = true; pintarLista();
+    api('/admin/orden', { tipo_id: S.tipo, campos: ids })
+      .then(function (r) { CAT = r; if (S.F) { S.F = null; S.base = ''; prepararForm(S.campo === '__nueva' ? null : S.campo); } })
+      .catch(function (e) { toast(e.message, true); })
+      .finally(function () { S.ocupado = false; pintarLado(); pintarLista(); pintarPanel(); });
+  }
+
+  function cambiarActivo(campoId, activo) {
+    if (!activo && !confirm('¿Retirar esta pregunta? Deja de aparecer en los preventivos nuevos. Los preventivos viejos la conservan y se puede volver a activar.')) return;
+    S.ocupado = true;
+    api('/admin/campo/activo', { tipo_id: S.tipo, campo_id: campoId, activo: activo })
+      .then(function (r) {
+        CAT = r;
+        toast(activo ? 'Pregunta activada de nuevo' : 'Pregunta retirada');
+        if (!activo) { S.campo = null; S.F = null; S.base = ''; }
+      })
+      .catch(function (e) { toast(e.message, true); })
+      .finally(function () { S.ocupado = false; pintarLado(); pintar(); });
+  }
+
+  /* ════════════════ editor de una pregunta ════════════════ */
+  function prepararForm(campoId) {
+    S.prueba = { v: '', ref: '' };
+    if (!campoId) {
+      S.F = { campo_id: '', etiqueta: '', tipo_campo: 'si_no', unidad: '', requerido: true, autocompletable: true,
+        ayuda: '', min: '', max: '', opciones: [], regla: { op: 'no' }, formula: '', repetir_por: '', original: '' };
+      S.base = '';
+      return;
+    }
+    var c = CAT.campos.find(function (x) { return x.tipo_id === S.tipo && x.campo_id === campoId; });
+    if (!c) { S.F = null; S.base = ''; return; }
+    var r = c.regla || { op: 'nunca' };
+    S.F = {
+      campo_id: c.campo_id, etiqueta: c.etiqueta, tipo_campo: c.tipo_campo, unidad: c.unidad || '',
+      requerido: !!c.requerido, autocompletable: !!c.autocompletable, ayuda: c.ayuda || '',
+      min: c.min == null ? '' : String(c.min), max: c.max == null ? '' : String(c.max),
+      opciones: (c.opciones || []).map(function (o) {
+        return { v: o.v, t: o.t, avisa: r.op === 'opciones' && r.valores.indexOf(o.v) >= 0 };
+      }),
+      regla: {
+        op: r.op === 'opciones' ? 'opciones' : r.op,
+        a: r.a == null ? '' : String(r.a), b: r.b == null ? '' : String(r.b),
+        ref: r.ref || 'ref_consumo_a', pct: r.pct == null ? '' : String(r.pct),
+      },
+      formula: c.formula || '', repetir_por: c.repetir_por || '',
+      original: (r.op === 'otra' || r.op === 'invalida') ? (c.cuando_avisa || '') : '',
+    };
+    S.base = JSON.stringify(S.F);
+  }
+
+  function pintarPanel() {
+    var p = $('panel');
+    if (!p) return;
+    if (!S.campo) {
+      p.innerHTML = '<div class="vacio"><h2>Elegí una pregunta</h2><p>Tocá una pregunta de la lista para editarla, o agregá una nueva.</p></div>';
+      return;
+    }
+    var heredada = S.campo !== '__nueva' && !CAT.campos.some(function (c) { return c.tipo_id === S.tipo && c.campo_id === S.campo && c.activo; });
+    if (heredada) {
+      var c = checklist(S.tipo).find(function (x) { return x.campo_id === S.campo; });
+      if (!c) { p.innerHTML = ''; return; }
+      var bl = tipoDe(c.tipo_id);
+      p.innerHTML = '<div class="editor" style="grid-template-columns:minmax(0,1fr)"><div class="form">' +
+        '<h3 style="margin:0;font-size:20px">' + esc(c.etiqueta) + '</h3>' +
+        '<div class="aviso az">Esta pregunta viene de <b>' + esc(nombreTipo(c.tipo_id)) + '</b>, que usan ' +
+        (bl ? bl.usado_por.length : 0) + ' tipos. Se edita en el bloque y el cambio les llega a todos.</div>' +
+        '<div><button type="button" class="b pri" id="irBloque">Ir a ' + esc(nombreTipo(c.tipo_id)) + '</button></div></div></div>';
+      $('irBloque').onclick = function () { abrirTipo(c.tipo_id, c.campo_id); };
+      return;
+    }
+    if (!S.F) prepararForm(S.campo === '__nueva' ? null : S.campo);
+    var F = S.F;
+    var t = tipoDe(S.tipo);
+    var nueva = !F.campo_id;
+    var calc = F.tipo_campo === 'calculado';
+    var bloqueado = !nueva && t.equipos_afectados > 0;
+
+    var h = '<div class="editor"><div class="form">';
+    h += '<div class="campo"><label for="f-etiqueta">Pregunta, como la lee el técnico</label>' +
+      '<input type="text" id="f-etiqueta" maxlength="120" value="' + esc(F.etiqueta) + '" style="font-size:18px;font-weight:600" placeholder="Ej: Nivel de aceite correcto">' +
+      '<div class="nota">' + (nueva ? 'El nombre interno se genera solo al guardar y no cambia nunca.'
+        : 'Nombre interno <code class="num">' + esc(F.campo_id) + '</code> · no cambia nunca') + '</div></div>';
+
+    h += '<div class="campo"><span class="lbl">Tipo de respuesta</span>';
+    if (calc) {
+      h += '<div class="aviso az" style="margin-top:0">Se calcula sola: <code class="num">' + esc(F.formula) + '</code>. La fórmula no se cambia desde acá; la regla de aviso sí.</div>';
+    } else {
+      h += '<div class="pills">' + TIPOS_RESP.map(function (x) {
+        return '<button type="button" class="pill' + (F.tipo_campo === x[0] ? ' on' : '') + '" data-tc="' + x[0] + '"' +
+          (bloqueado && F.tipo_campo !== x[0] ? ' disabled' : '') + ' aria-pressed="' + (F.tipo_campo === x[0]) + '">' + x[1] + '</button>';
+      }).join('') + '</div>';
+      if (bloqueado) h += '<div class="nota">Ya hay equipos cargados con esta pregunta: el tipo de respuesta no se puede cambiar. Si hace falta, retirala y creá otra.</div>';
+    }
+    if (F.repetir_por) h += '<div class="nota">Se repite una vez por cada compresor del equipo.</div>';
+    h += '</div>';
+
+    h += '<div class="fila">';
+    if (F.tipo_campo === 'numero' || calc) {
+      h += '<div class="campo"><label for="f-unidad">Unidad</label><input type="text" id="f-unidad" class="num w-chico" maxlength="12" value="' + esc(F.unidad) + '" placeholder="V, °C, bar…"></div>';
+    }
+    if (!calc) h += '<button type="button" class="switch" id="f-req" aria-pressed="' + F.requerido + '"><span class="pista"></span>Obligatoria</button>';
+    if (F.tipo_campo === 'si_no' || F.tipo_campo === 'opciones') {
+      h += '<button type="button" class="switch" id="f-auto" aria-pressed="' + F.autocompletable + '"><span class="pista"></span>«Todo conforme» la precarga</button>';
+    }
+    h += '</div>';
+
+    // --- cuándo avisa
+    h += '<div class="regla"><h4>¿Cuándo avisa?</h4>';
+    if (F.original) {
+      h += '<div class="aviso amb" style="margin-top:0">La regla actual es <code class="num">' + esc(F.original) + '</code>' +
+        (F.regla.op === 'invalida' ? ' y es inválida: hoy esta pregunta <b>no avisa nunca</b>.' : ', que no se puede editar acá.') +
+        ' Para cambiarla, elegí una nueva.</div>';
+    }
+    if (F.tipo_campo === 'numero' || calc) {
+      h += '<div class="pills">' + [['nunca', 'No avisa'], ['menor', 'Si es menor a…'], ['mayor', 'Si es mayor a…'],
+        ['fuera', 'Si sale de un rango…'], ['sobre_ref', 'Si supera un % de un dato del equipo…'], ['bajo_ref', 'Si cae un % de un dato del equipo…']]
+        .map(function (x) { return '<button type="button" class="pill' + (F.regla.op === x[0] ? ' on' : '') + '" data-op="' + x[0] + '" aria-pressed="' + (F.regla.op === x[0]) + '">' + x[1] + '</button>'; }).join('') + '</div>';
+      var u = '<span class="num" style="color:var(--tinta2)">' + esc(F.unidad) + '</span>';
+      if (F.regla.op === 'menor' || F.regla.op === 'mayor') {
+        h += '<div class="valores"><span>Avisa si es ' + F.regla.op + ' a</span><input type="text" inputmode="decimal" class="num w-chico" id="f-a" aria-label="Valor" value="' + esc(F.regla.a) + '">' + u + '</div>';
+      } else if (F.regla.op === 'fuera') {
+        h += '<div class="valores"><span>Tiene que estar entre</span><input type="text" inputmode="decimal" class="num w-chico" id="f-a" aria-label="Mínimo" value="' + esc(F.regla.a) + '">' +
+          '<span>y</span><input type="text" inputmode="decimal" class="num w-chico" id="f-b" aria-label="Máximo" value="' + esc(F.regla.b) + '">' + u + '</div>';
+      } else if (F.regla.op === 'sobre_ref' || F.regla.op === 'bajo_ref') {
+        h += '<div class="valores"><span>' + (F.regla.op === 'sobre_ref' ? 'Avisa si supera en más de' : 'Avisa si cae más de') + '</span>' +
+          '<input type="text" inputmode="decimal" class="num w-chico" id="f-pct" aria-label="Porcentaje" value="' + esc(F.regla.pct) + '"><span>% el</span>' +
+          '<select id="f-ref" style="width:auto">' + Object.keys(CAT.refs).map(function (k) {
+            return '<option value="' + esc(k) + '"' + (F.regla.ref === k ? ' selected' : '') + '>' + esc(CAT.refs[k]) + '</option>';
+          }).join('') + '</select></div>';
+      }
+    } else if (F.tipo_campo === 'si_no') {
+      h += '<div class="pills">' + [['nunca', 'No avisa'], ['no', 'Si responde No']].map(function (x) {
+        return '<button type="button" class="pill' + (F.regla.op === x[0] ? ' on' : '') + '" data-op="' + x[0] + '" aria-pressed="' + (F.regla.op === x[0]) + '">' + x[1] + '</button>';
+      }).join('') + '</div><div class="nota" style="font-size:13px;color:var(--tinta3)">Redactala en positivo, para que «Sí» sea la respuesta conforme.</div>';
+    } else if (F.tipo_campo === 'opciones') {
+      h += '<div style="font-size:14.5px;color:var(--tinta2)">Marcá las respuestas que generan aviso.</div>';
+      h += F.opciones.map(function (o, j) {
+        return '<div class="op"><input type="text" maxlength="60" data-opt="' + j + '" aria-label="Opción ' + (j + 1) + '" value="' + esc(o.t) + '">' +
+          '<button type="button" class="tag' + (o.avisa ? ' on' : '') + '" data-avisa="' + j + '" aria-pressed="' + o.avisa + '">' + (o.avisa ? '⚠ Avisa' : 'No avisa') + '</button>' +
+          '<button type="button" class="x" data-quitar="' + j + '" aria-label="Quitar opción">×</button></div>';
+      }).join('');
+      h += '<div><button type="button" class="b chico" id="f-addopt">+ Agregar opción</button></div>';
+    }
+    h += '<div class="frase" id="d-frase"></div><div class="guarda">Se guarda en la planilla como: <code id="d-guarda"></code></div>';
+    h += '<div class="probar" id="d-probar"></div></div>';
+
+    if (F.tipo_campo === 'numero') {
+      h += '<div class="campo"><span class="lbl">Límites al tipear <span style="font-weight:400;color:var(--tinta3)">(opcional)</span></span>' +
+        '<div class="valores"><span>No aceptar menos de</span><input type="text" inputmode="decimal" class="num w-chico" id="f-min" aria-label="Mínimo al tipear" value="' + esc(F.min) + '">' +
+        '<span>ni más de</span><input type="text" inputmode="decimal" class="num w-chico" id="f-max" aria-label="Máximo al tipear" value="' + esc(F.max) + '"></div>' +
+        '<div class="nota">Frena errores de tipeo, como 30 donde iba 3. No genera avisos.</div></div>';
+    }
+    h += '<div class="campo"><label for="f-ayuda">Ayuda para el técnico <span style="font-weight:400;color:var(--tinta3)">(opcional)</span></label>' +
+      '<textarea id="f-ayuda" rows="2" maxlength="300" placeholder="Cómo o dónde se mide">' + esc(F.ayuda) + '</textarea></div>';
+    h += '<div class="nota-precarga">' + (F.tipo_campo === 'numero' || calc
+      ? 'Los números nunca se precargan con «Todo conforme»: el técnico tiene que medir.'
+      : (F.tipo_campo === 'si_no' || F.tipo_campo === 'opciones')
+        ? 'Si «Todo conforme» la precarga, completa la respuesta que no avisa. El técnico puede cambiarla.'
+        : 'Texto y fotos no se precargan.') + '</div>';
+
+    h += '<div class="acciones"><button type="button" class="b pri" id="f-guardar">' + (nueva ? 'Crear pregunta' : 'Guardar cambios') + '</button>' +
+      '<button type="button" class="b" id="f-descartar">Descartar cambios</button>' +
+      (nueva ? '' : '<button type="button" class="b peligro der" id="f-retirar">Retirar pregunta</button>') + '</div>';
+    h += '</div><aside class="previa" aria-label="Vista previa"><div class="rot">Así lo ve el técnico</div><div class="tel"><div class="pant">' +
+      '<div class="bar"><b>' + esc(t.bloque ? 'ICR-XX-0001' : 'ICR-' + t.prefijo_qr + '-0001') + '</b><span>' + esc(t.bloque ? nombreTipo(t.tipo_id) : t.nombre) + ' · Preventivo</span></div>' +
+      '<div class="q" id="d-previa"></div><div class="pie" id="d-pos"></div></div></div></aside></div>';
+    $('panel').innerHTML = h;
+    enlazarPanel();
+    refrescar();
+  }
+
+  function enlazarPanel() {
+    var F = S.F;
+    function en(id, ev, fn) { var el = $(id); if (el) el.addEventListener(ev, fn); }
+    en('f-etiqueta', 'input', function (e) { F.etiqueta = e.target.value; refrescar(); });
+    en('f-unidad', 'input', function (e) { F.unidad = e.target.value; refrescar(); });
+    en('f-a', 'input', function (e) { F.regla.a = e.target.value; refrescar(); });
+    en('f-b', 'input', function (e) { F.regla.b = e.target.value; refrescar(); });
+    en('f-pct', 'input', function (e) { F.regla.pct = e.target.value; refrescar(); });
+    en('f-ref', 'change', function (e) { F.regla.ref = e.target.value; refrescar(); });
+    en('f-min', 'input', function (e) { F.min = e.target.value; refrescar(); });
+    en('f-max', 'input', function (e) { F.max = e.target.value; refrescar(); });
+    en('f-ayuda', 'input', function (e) { F.ayuda = e.target.value; refrescar(); });
+    en('f-req', 'click', function () { F.requerido = !F.requerido; this.setAttribute('aria-pressed', F.requerido); refrescar(); });
+    en('f-auto', 'click', function () { F.autocompletable = !F.autocompletable; this.setAttribute('aria-pressed', F.autocompletable); refrescar(); });
+    en('f-addopt', 'click', function () { F.opciones.push({ v: '', t: '', avisa: false }); pintarPanel(); var q = $('panel').querySelectorAll('[data-opt]'); q[q.length - 1].focus(); });
+    en('f-guardar', 'click', guardarCampo);
+    en('f-descartar', 'click', function () {
+      if (S.campo === '__nueva') { S.campo = null; S.F = null; S.base = ''; pintarLista(); pintarPanel(); return; }
+      prepararForm(S.campo); pintarPanel();
+    });
+    en('f-retirar', 'click', function () { cambiarActivo(F.campo_id, false); });
+
+    var P = $('panel');
+    Array.prototype.forEach.call(P.querySelectorAll('[data-tc]'), function (b) {
+      b.onclick = function () {
+        var tc = b.getAttribute('data-tc');
+        if (tc === F.tipo_campo) return;
+        F.tipo_campo = tc;
+        F.regla = { op: tc === 'si_no' ? 'no' : 'nunca', a: '', b: '', ref: 'ref_consumo_a', pct: '' };
+        F.original = '';
+        F.autocompletable = tc === 'si_no' || tc === 'opciones';
+        if (tc === 'opciones' && F.opciones.length < 2) F.opciones = [{ v: '', t: 'Bueno', avisa: false }, { v: '', t: 'Malo', avisa: true }];
+        if (tc !== 'numero') { F.unidad = ''; F.min = ''; F.max = ''; }
+        pintarPanel();
+      };
+    });
+    Array.prototype.forEach.call(P.querySelectorAll('[data-op]'), function (b) {
+      b.onclick = function () { F.regla.op = b.getAttribute('data-op'); pintarPanel(); var a = $('f-a') || $('f-pct'); if (a) a.focus(); };
+    });
+    Array.prototype.forEach.call(P.querySelectorAll('[data-opt]'), function (inp) {
+      inp.addEventListener('input', function () { F.opciones[Number(inp.getAttribute('data-opt'))].t = inp.value; refrescar(); });
+    });
+    Array.prototype.forEach.call(P.querySelectorAll('[data-avisa]'), function (b) {
+      b.onclick = function () { var o = F.opciones[Number(b.getAttribute('data-avisa'))]; o.avisa = !o.avisa; F.original = ''; pintarPanel(); };
+    });
+    Array.prototype.forEach.call(P.querySelectorAll('[data-quitar]'), function (b) {
+      b.onclick = function () { F.opciones.splice(Number(b.getAttribute('data-quitar')), 1); pintarPanel(); };
+    });
+  }
+
+  /** Actualiza frase, prueba, vista previa y botón sin redibujar los campos (no se pierde el foco). */
+  function refrescar() {
+    var F = S.F;
+    if (!F || !$('d-frase')) return;
+    var A = analizar(F);
+    $('d-frase').textContent = A.error || A.frase;
+    $('d-frase').className = 'frase' + (A.error ? ' err' : '');
+    $('d-guarda').textContent = A.guarda;
+
+    var numerico = (F.tipo_campo === 'numero' || F.tipo_campo === 'calculado') &&
+      ['menor', 'mayor', 'fuera', 'sobre_ref', 'bajo_ref'].indexOf(F.regla.op) >= 0 && !A.error;
+    var pr = $('d-probar');
+    if (!numerico) { pr.innerHTML = ''; pr.classList.add('oculto'); }
+    else {
+      pr.classList.remove('oculto');
+      if (!pr.querySelector('#p-v')) {
+        var conRef = F.regla.op === 'sobre_ref' || F.regla.op === 'bajo_ref';
+        pr.innerHTML = '<label for="p-v" style="font-weight:700">Probar con un valor</label>' +
+          '<input type="text" inputmode="decimal" id="p-v" class="num w-chico" placeholder="ej. 31" value="' + esc(S.prueba.v) + '">' +
+          (conRef ? '<span>con dato del equipo</span><input type="text" inputmode="decimal" id="p-ref" class="num w-chico" placeholder="ej. 12" aria-label="Dato del equipo" value="' + esc(S.prueba.ref) + '">' : '') +
+          '<span class="res" id="p-res"></span>';
+        $('p-v').addEventListener('input', function (e) { S.prueba.v = e.target.value; refrescar(); });
+        if ($('p-ref')) $('p-ref').addEventListener('input', function (e) { S.prueba.ref = e.target.value; refrescar(); });
+      }
+    }
+    var avisa = numerico ? probar(F) : null;
+    if ($('p-res')) {
+      $('p-res').textContent = avisa === null ? 'Escribí un número' : avisa ? '⚠ Generaría un aviso' : '✓ En rango, no avisa';
+      $('p-res').className = 'res' + (avisa === null ? '' : avisa ? ' si' : ' no');
+    }
+
+    // vista previa
+    var q = '<div class="t">' + esc(F.etiqueta || 'Pregunta sin escribir') + (F.requerido && F.tipo_campo !== 'calculado' ? ' *' : '') + '</div>';
+    if (F.ayuda.trim()) q += '<div class="a">' + esc(F.ayuda) + '</div>';
+    if (F.tipo_campo === 'numero' || F.tipo_campo === 'calculado') {
+      q += '<div class="caja-num' + (avisa === null ? '' : avisa ? ' si' : ' no') + '"><b>' + (numero(S.prueba.v) === null ? '—' : esc(fmt(S.prueba.v))) + '</b><span>' + esc(F.unidad) + '</span></div>';
+      if (F.tipo_campo === 'calculado') q += '<div class="a">Se calcula solo con las mediciones anteriores.</div>';
+      if (avisa !== null) q += '<div class="a" style="font-weight:700;color:' + (avisa ? 'var(--ambar-txt)' : 'var(--verde)') + '">' + (avisa ? 'Fuera de rango' : 'En rango') + '</div>';
+    } else if (F.tipo_campo === 'si_no') {
+      q += '<div class="sn"><span>Sí</span><span>No</span></div>';
+    } else if (F.tipo_campo === 'opciones') {
+      q += '<div class="chs">' + F.opciones.filter(function (o) { return o.t.trim(); }).map(function (o) { return '<span class="ch">' + esc(o.t) + '</span>'; }).join('') + '</div>';
+    } else if (F.tipo_campo === 'texto') {
+      q += '<div class="txt"></div>';
+    } else {
+      q += '<div class="foto">Sacar foto</div>';
+    }
+    $('d-previa').innerHTML = q;
+    var lista = checklist(S.tipo);
+    var pos = lista.findIndex(function (c) { return c.campo_id === F.campo_id; });
+    $('d-pos').textContent = 'Pregunta ' + (pos >= 0 ? pos + 1 : lista.filter(function (c) { return c.orden < 900; }).length + 1) + ' de ' + (lista.length + (pos >= 0 ? 0 : 1));
+
+    var g = $('f-guardar');
+    g.disabled = !!A.error || S.ocupado || !hayCambios();
+  }
+
+  function guardarCampo() {
+    var F = S.F;
+    if (analizar(F).error || S.ocupado) return;
+    var cuerpo = {
+      tipo_id: S.tipo, etiqueta: F.etiqueta.trim(), tipo_campo: F.tipo_campo, unidad: F.unidad.trim(),
+      requerido: F.requerido, autocompletable: F.autocompletable, ayuda: F.ayuda.trim(), min: F.min, max: F.max,
+      opciones: F.opciones.filter(function (o) { return o.t.trim(); }).map(function (o) { return { v: o.v, t: o.t.trim(), avisa: o.avisa }; }),
+      regla: { op: F.regla.op, a: F.regla.a, b: F.regla.b, ref: F.regla.ref, pct: F.regla.pct },
+    };
+    if (F.tipo_campo === 'texto' || F.tipo_campo === 'foto') cuerpo.regla = { op: 'nunca' };
+    if (F.campo_id) cuerpo.campo_id = F.campo_id;
+    S.ocupado = true;
+    $('f-guardar').disabled = true;
+    $('f-guardar').textContent = 'Guardando…';
+    api('/admin/campo', cuerpo).then(function (r) {
+      CAT = r;
+      S.campo = r.campo_id;
+      S.F = null;
+      prepararForm(r.campo_id);
+      toast(F.campo_id ? 'Cambios guardados' : 'Pregunta creada');
+    }).catch(function (e) {
+      toast(e.message, true);
+    }).finally(function () {
+      S.ocupado = false;
+      pintarLado(); pintarLista(); pintarPanel();
+    });
+  }
+
+  /* ════════════════ alta / edición de un tipo ════════════════ */
+  var TF = null;
+  function abrirTipoForm(id) {
+    var t = id ? tipoDe(id) : null;
+    TF = t ? {
+      tipo_id: t.tipo_id, nombre: t.nombre, prefijo_qr: t.prefijo_qr, periodicidad_default: String(t.periodicidad_default || ''),
+      hereda_de: t.hereda_de || 'base_general', cat_ticket_id: t.cat_ticket_id ? String(t.cat_ticket_id) : '',
+      subcat_ticket_id: t.subcat_ticket_id ? String(t.subcat_ticket_id) : '', posicion_etiqueta: t.posicion_etiqueta, activo: t.activo,
+      equipos: t.equipos,
+    } : { tipo_id: '', nombre: '', prefijo_qr: '', periodicidad_default: '90', hereda_de: 'base_general',
+      cat_ticket_id: '', subcat_ticket_id: '', posicion_etiqueta: '', activo: true, equipos: 0 };
+    S.vista = 'tipoForm'; S.F = null; S.base = '';
+    pintarLado();
+    pintarTipoForm();
+  }
+
+  function pintarTipoForm() {
+    var nuevo = !TF.tipo_id;
+    var bloques = CAT.tipos.filter(function (t) { return t.bloque; });
+    var h = '<form class="caja tform" id="tform" novalidate><h2 style="margin:0 0 4px;font-size:26px">' + (nuevo ? 'Nuevo tipo de equipo' : 'Datos de ' + esc(TF.nombre)) + '</h2>' +
+      '<p style="margin:0 0 20px;color:var(--tinta2)">' + (nuevo ? 'Después de crearlo cargás sus preguntas.' : 'Las preguntas se editan en la pantalla del tipo.') + '</p><div class="grid2">';
+    h += '<div class="campo"><label for="t-nombre">Nombre</label><input type="text" id="t-nombre" maxlength="80" value="' + esc(TF.nombre) + '" placeholder="Ej: Grupo electrógeno"></div>';
+    h += '<div class="campo"><label for="t-pref">Letras de la etiqueta</label><div style="display:flex;gap:12px;align-items:center">' +
+      '<input type="text" id="t-pref" class="num" maxlength="2" style="width:80px;text-transform:uppercase;font-size:18px" value="' + esc(TF.prefijo_qr) + '"' + (TF.equipos ? ' disabled' : '') + '>' +
+      '<span id="t-pref-est"></span></div>' + (TF.equipos ? '<div class="nota">Ya hay ' + TF.equipos + ' equipos etiquetados: las letras no se pueden cambiar.</div>' : '') + '</div>';
+    h += '<div class="campo"><label for="t-per">Cada cuántos días (valor sugerido)</label><input type="number" id="t-per" class="num" min="1" max="730" style="width:130px" value="' + esc(TF.periodicidad_default) + '">' +
+      '<div class="nota">El técnico lo puede cambiar al dar de alta cada equipo.</div></div>';
+    h += '<div class="campo"><label for="t-her">Toma preguntas de</label><select id="t-her">' + bloques.map(function (b) {
+      return '<option value="' + esc(b.tipo_id) + '"' + (TF.hereda_de === b.tipo_id ? ' selected' : '') + '>' +
+        esc(b.tipo_id === 'base_general' ? 'Solo las comunes (fotos y observaciones)' : nombreTipo(b.tipo_id)) + '</option>';
+    }).join('') + '</select><div class="nota">Las comunes (fotos y observaciones) van siempre al final.</div></div>';
+    h += '<div class="campo"><label for="t-cat">El correctivo va a la categoría</label><select id="t-cat"><option value="">— Elegir —</option>' +
+      CATEG.map(function (c) { return '<option value="' + esc(c.v) + '"' + (TF.cat_ticket_id === c.v ? ' selected' : '') + '>' + esc(c.t) + '</option>'; }).join('') + '</select></div>';
+    h += '<div class="campo"><label for="t-sub">Subcategoría</label><select id="t-sub"><option value="">— Ninguna —</option>' +
+      (SUBCAT[TF.cat_ticket_id] || []).map(function (c) { return '<option value="' + esc(c.v) + '"' + (TF.subcat_ticket_id === c.v ? ' selected' : '') + '>' + esc(c.t) + '</option>'; }).join('') + '</select></div>';
+    h += '<div class="campo ancho"><label for="t-pos">Dónde se pega la etiqueta</label><input type="text" id="t-pos" maxlength="200" value="' + esc(TF.posicion_etiqueta) + '" placeholder="Siempre en el mismo lugar de cada equipo de este tipo"></div>';
+    if (!nuevo) h += '<div class="campo ancho"><button type="button" class="switch" id="t-act" aria-pressed="' + TF.activo + '"><span class="pista"></span>Activo (aparece en la app y en las etiquetas)</button></div>';
+    h += '</div><div class="acciones" style="margin-top:22px"><button type="submit" class="b pri" id="t-guardar">' + (nuevo ? 'Crear y cargar las preguntas →' : 'Guardar') + '</button>' +
+      '<button type="button" class="b" id="t-cancelar">Cancelar</button><span class="mal" id="t-err" role="alert"></span></div></form>';
+    $('principal').innerHTML = h;
+
+    function sync() {
+      TF.nombre = $('t-nombre').value; TF.prefijo_qr = $('t-pref').value.toUpperCase().replace(/[^A-Z]/g, '');
+      TF.periodicidad_default = $('t-per').value; TF.hereda_de = $('t-her').value;
+      TF.subcat_ticket_id = $('t-sub').value; TF.posicion_etiqueta = $('t-pos').value;
+      var est = $('t-pref-est'), p = TF.prefijo_qr;
+      var duenio = CAT.tipos.find(function (t) { return t.prefijo_qr === p && t.tipo_id !== TF.tipo_id; });
+      if (p.length < 2) { est.className = ''; est.textContent = 'Dos letras'; }
+      else if (duenio) { est.className = 'mal'; est.textContent = 'Ya son de «' + duenio.nombre + '»'; }
+      else { est.className = 'ok'; est.textContent = '✓ Libre · quedará ICR-' + p + '-0001'; }
+    }
+    ['t-nombre', 't-pref', 't-per', 't-pos'].forEach(function (id) { $(id).addEventListener('input', sync); });
+    $('t-her').addEventListener('change', sync);
+    $('t-sub').addEventListener('change', sync);
+    $('t-cat').addEventListener('change', function (e) {
+      sync();                                   // conserva lo ya escrito antes de redibujar
+      TF.cat_ticket_id = e.target.value;
+      TF.subcat_ticket_id = '';
+      pintarTipoForm();
+      $('t-sub').focus();
+    });
+    if ($('t-act')) $('t-act').onclick = function () { TF.activo = !TF.activo; this.setAttribute('aria-pressed', TF.activo); };
+    $('t-cancelar').onclick = function () { if (TF.tipo_id) abrirTipo(TF.tipo_id); else { S.vista = 'inicio'; S.tipo = null; pintarLado(); pintar(); } };
+    $('tform').onsubmit = function (ev) {
+      ev.preventDefault();
+      sync();
+      var err = '';
+      var per = Number(TF.periodicidad_default);
+      if (!TF.nombre.trim()) err = 'Falta el nombre.';
+      else if (!/^[A-Z]{2}$/.test(TF.prefijo_qr)) err = 'Las letras de la etiqueta son dos.';
+      else if ($('t-pref-est').className === 'mal') err = 'Esas letras ya están usadas.';
+      else if (!Number.isInteger(per) || per < 1 || per > 730) err = 'Cada cuántos días: un número de 1 a 730.';
+      else if (!TF.cat_ticket_id) err = 'Elegí la categoría del correctivo.';
+      $('t-err').textContent = err;
+      if (err) return;
+      var cat = CATEG.find(function (c) { return c.v === TF.cat_ticket_id; });
+      var sub = (SUBCAT[TF.cat_ticket_id] || []).find(function (c) { return c.v === TF.subcat_ticket_id; });
+      var cuerpo = {
+        nombre: TF.nombre.trim(), prefijo_qr: TF.prefijo_qr, periodicidad_default: per, hereda_de: TF.hereda_de,
+        cat_ticket_id: Number(TF.cat_ticket_id), subcat_ticket_id: sub ? Number(sub.v) : '',
+        categoria: cat ? cat.t : '', subcategoria: sub ? sub.t : '', posicion_etiqueta: TF.posicion_etiqueta.trim(), activo: TF.activo,
+      };
+      if (TF.tipo_id) cuerpo.tipo_id = TF.tipo_id;
+      $('t-guardar').disabled = true; $('t-guardar').textContent = 'Guardando…';
+      api('/admin/tipo', cuerpo).then(function (r) {
+        CAT = r;
+        toast(TF.tipo_id ? 'Datos guardados' : 'Tipo creado. Ahora agregá sus preguntas.');
+        abrirTipo(r.tipo_id);
+      }).catch(function (e) {
+        $('t-err').textContent = e.message;
+        $('t-guardar').disabled = false; $('t-guardar').textContent = TF.tipo_id ? 'Guardar' : 'Crear y cargar las preguntas →';
+      });
+    };
+    sync();
+  }
+
+  /* ════════════════ arranque ════════════════ */
+  var lento = setTimeout(function () {
+    var p = $('principal').querySelector('.cargando');
+    if (p) p.textContent = 'Despertando el servidor, puede tardar un minuto…';
+  }, 4000);
+  Promise.all([
+    api('/admin/catalogo?fresco=1'),
+    fetch('./data.json', { cache: 'no-cache' }).then(function (r) { return r.json(); }).catch(function () { return null; }),
+  ]).then(function (res) {
+    clearTimeout(lento);
+    CAT = res[0];
+    var dj = res[1];
+    if (dj) {
+      CATEG = (dj.categorias_por_area && dj.categorias_por_area['1']) || [];
+      SUBCAT = dj.subcategorias_por_categoria || {};
+    }
+    pintarLado();
+    pintar();
+  }).catch(function (e) {
+    clearTimeout(lento);
+    $('principal').innerHTML = '<div class="vacio"><h2>No se pudo cargar</h2><p>' + esc(e.message) + '</p>' +
+      '<p><button type="button" class="b" onclick="location.reload()">Reintentar</button></p></div>';
+  });
+})();
+</script>
+</body>
+</html>

@@ -697,38 +697,32 @@
   }
 
   /**
-   * Estado de vencimiento. Es el único lugar donde se decide el color.
-   * (panel-preventivo.html repite esta misma regla; si cambia, cambiar en los dos.)
-   *   gris     → nunca se le hizo un preventivo. Puede tener fecha prevista
-   *              (el alta reparte el primer vencimiento) pero no es "vencido":
-   *              es el primer preventivo pendiente.
-   *   rojo     → ya venció
-   *   naranja  → vence en 0 a 7 días
-   *   amarillo → vence en 8 a 14 días
-   *   verde    → faltan 15 días o más
+   * Estado de vencimiento: tres colores, los mismos que el servidor y el panel.
+   * (panel-preventivo.html e index.html repiten esta regla; si cambia, cambiar en los tres.)
+   *   rojo     → ya venció, o no tiene fecha
+   *   amarillo → vence en 7 días o menos
+   *   verde    → faltan 8 días o más
+   * Un equipo sin ningún preventivo se pinta por su primera fecha prevista
+   * (la reparte el alta), como cualquier otro.
    */
   function estadoVenc(dias) {
-    if (dias === null || dias === undefined || !isFinite(dias)) return 'gris';
-    if (dias < 0) return 'rojo';
-    if (dias <= 7) return 'naranja';
-    if (dias <= 14) return 'amarillo';
+    if (dias === null || dias === undefined || !isFinite(dias) || dias < 0) return 'rojo';
+    if (dias <= 7) return 'amarillo';
     return 'verde';
   }
-  function estadoEquipo(e) {
-    if (e.semaforo === 'gris' || !e.ultimo_preventivo) return 'gris';
-    return estadoVenc(e.dias_restantes);
-  }
-  const ORDEN_ESTADO = { rojo: 0, naranja: 1, amarillo: 2, gris: 3, verde: 4 };
+  const estadoEquipo = (e) => estadoVenc(e.dias_restantes);
+  const ORDEN_ESTADO = { rojo: 0, amarillo: 1, verde: 2 };
   const porPrioridad = (a, b) => (ORDEN_ESTADO[a._est] - ORDEN_ESTADO[b._est]) ||
-    ((a.dias_restantes ?? 9999) - (b.dias_restantes ?? 9999));
+    ((a.dias_restantes ?? -9999) - (b.dias_restantes ?? -9999));
 
   function textoVenc(e) {
     const d = e.dias_restantes;
-    if (e._est === 'gris') {
+    if (!e.ultimo_preventivo) {
       if (d === null || d === undefined) return '1er preventivo pendiente';
       if (d < 0) return `1er preventivo · hace ${Math.abs(d)} d.`;
       return d === 0 ? '1er preventivo · hoy' : `1er preventivo · en ${d} d.`;
     }
+    if (d === null || d === undefined) return 'Sin fecha de vencimiento';
     if (d < 0) return `Venció hace ${Math.abs(d)} d.`;
     if (d === 0) return 'Vence hoy';
     return `Vence en ${d} d.`;
@@ -755,20 +749,20 @@
     try {
       const r = await api('/semaforo?institucion=' + encodeURIComponent(instId) +
                           '&responsable=' + encodeURIComponent(FILTRO()));
-      // `atencion` trae todo lo que no está en verde según el servidor: sin
-      // registro, vencido y lo que vence dentro de 30 días. Lo que falta más de
-      // 30 días viene solo contado (totales.verde y verde de cada zona).
+      // `atencion` trae lo vencido, lo que no tiene fecha y lo que vence dentro
+      // del horizonte (30 días). Lo que falta más viene solo contado
+      // (verde_sin_detalle, en totales y en cada zona).
       const lista = (r.atencion || []).map((e) => Object.assign({}, e, {
         _est: estadoEquipo(e),
         _lugar: e.lugar || nombreLugar(instId, e.lugar_id) || 'Sin lugar',
         _piso: e.piso || 'Sin piso',
       })).sort(porPrioridad);
 
-      // verde > 30 días por lugar, para que el contador "Al día" respete el filtro
+      // verde fuera del horizonte por lugar, para que el contador "Al día" respete el filtro
       const verdeLugar = {};
       (r.zonas || []).forEach((z) => {
         const k = z.lugar || nombreLugar(instId, z.lugar_id) || 'Sin lugar';
-        verdeLugar[k] = (verdeLugar[k] || 0) + (z.verde || 0);
+        verdeLugar[k] = (verdeLugar[k] || 0) + (z.verde_sin_detalle ?? z.verde ?? 0);
         verdeLugar['__adel__' + k] = (verdeLugar['__adel__' + k] || 0) + (z.adelantables || 0);
       });
 
@@ -806,11 +800,12 @@
     const { r, lista, lugares } = VENC;
 
     const enLugar = filtroLugar ? lista.filter((e) => e._lugar === filtroLugar) : lista;
-    const cuenta = { rojo: 0, naranja: 0, amarillo: 0, verde: 0, gris: 0 };
+    const cuenta = { rojo: 0, amarillo: 0, verde: 0 };
     enLugar.forEach((e) => { cuenta[e._est]++; });
+    const tot = r.totales || {};
     cuenta.verde += filtroLugar
       ? ((lugares.find((l) => l.nombre === filtroLugar) || {}).verde || 0)
-      : ((r.totales && r.totales.verde) || 0);
+      : (tot.verde_sin_detalle ?? tot.verde ?? 0);
 
     const chipsLugar = lugares.length > 1 ? `
       <div class="prev-lugares">
@@ -823,8 +818,7 @@
 
     const contadores = `
       <div class="prev-cont">
-        ${[['rojo', 'Vencidos'], ['naranja', '≤ 7 días'], ['amarillo', '8 a 14 d.'],
-           ['verde', 'Al día'], ['gris', 'Sin prev.']].map(([k, t]) => `
+        ${[['rojo', 'Vencidos'], ['amarillo', 'En 7 días'], ['verde', 'Al día']].map(([k, t]) => `
         <button class="prev-cont-i ${k} ${filtroEst === k ? 'on' : ''}" onclick="PREV.filtrarEstado('${k}')">
           <b>${cuenta[k]}</b><span>${t}</span></button>`).join('')}
       </div>
@@ -836,7 +830,7 @@
       c.innerHTML = chipsLugar + contadores + `<div class="prev-card prev-ok"><b>${
         filtroEst ? 'Nada en esta situación' : 'Todo al día'}</b>
         <p>${filtroEst ? 'Probá con otro filtro.' :
-          'No hay equipos vencidos, sin preventivo ni por vencer en los próximos 30 días.'}</p></div>`;
+          'No hay equipos vencidos ni por vencer en los próximos 30 días.'}</p></div>`;
       return;
     }
 
@@ -863,9 +857,8 @@
     c.innerHTML = chipsLugar + contadores + cuerpo;
   }
 
-  const NOMBRE_EST = { rojo: 'vencidos', naranja: 'vencen en 7 días o menos',
-    amarillo: 'vencen en 8 a 14 días', verde: 'vencen en 15 a 30 días',
-    gris: 'equipos sin ningún preventivo todavía' };
+  const NOMBRE_EST = { rojo: 'vencidos o sin fecha', amarillo: 'vencen en 7 días o menos',
+    verde: 'al día que vencen en los próximos 30 días' };
 
   function tarjetaVenc(e) {
     return `
@@ -1111,7 +1104,6 @@
       // aparecía como opción de "equipo padre" hasta refrescar el inventario
       const tipoNuevo = tipoDe(cuerpo.tipo);
       INVENTARIO.push(Object.assign({}, cuerpo, {
-        semaforo: 'gris',
         funcion: (tipoNuevo && tipoNuevo.funcion) || '',
       }));
       await dbSet('kv', { time: Date.now(), equipos: INVENTARIO }, 'inv_' + instId);
@@ -2419,7 +2411,7 @@
   .prev-cont-i.on{border-color:#0060D6;box-shadow:inset 0 0 0 1px #0060D6;background:#f2f7fe;}
   .prev-cont-i b{display:block;font-size:19px;font-weight:800;line-height:1.1;color:#8a93a0;}
   .prev-cont-i span{display:block;font-size:10px;font-weight:600;color:#8a93a0;margin-top:3px;}
-  .prev-cont-i.rojo b{color:#c0392b;} .prev-cont-i.naranja b{color:#D9580B;}
+  .prev-cont-i.rojo b{color:#c0392b;}
   .prev-cont-i.amarillo b{color:#A67C00;} .prev-cont-i.verde b{color:#1f7a3a;}
   .prev-lugar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:20px 2px 4px;
     font-size:13.5px;font-weight:700;color:#0060D6;}
@@ -2432,11 +2424,11 @@
   .prev-piso span{font-weight:600;letter-spacing:0;}
   .prev-venc{background:#fff;border:1px solid #e3e8ef;border-left:3px solid #c3ccd8;
     border-radius:10px;padding:10px 13px;margin-bottom:8px;}
-  .prev-venc.rojo{border-left-color:#c0392b;} .prev-venc.naranja{border-left-color:#F26B0F;}
+  .prev-venc.rojo{border-left-color:#c0392b;}
   .prev-venc.amarillo{border-left-color:#E6B400;} .prev-venc.verde{border-left-color:#2E9E57;}
   .prev-venc-cab{display:flex;justify-content:space-between;align-items:center;gap:8px;}
   .prev-venc-est{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#5a6472;}
-  .prev-venc.rojo .prev-venc-est{color:#c0392b;} .prev-venc.naranja .prev-venc-est{color:#D9580B;}
+  .prev-venc.rojo .prev-venc-est{color:#c0392b;}
   .prev-venc.amarillo .prev-venc-est{color:#A67C00;} .prev-venc.verde .prev-venc-est{color:#1f7a3a;}
   .prev-venc-id{font-size:11px;color:#8a93a0;font-family:ui-monospace,Menlo,monospace;flex:none;}
   .prev-venc-tit{font-size:14px;font-weight:700;margin-top:5px;}

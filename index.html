@@ -2936,18 +2936,21 @@ function lecItemPd(it){
     '</div></div>';
 }
 
-// Mismo criterio que el panel y las apps: sin preventivo hecho = gris, nunca vencido.
+// Mismo criterio que el panel y las apps, tres colores: rojo vencido o sin
+// fecha · amarillo vence en 7 días o menos · verde el resto. Un equipo sin
+// preventivo se pinta por su primera fecha prevista, como cualquier otro.
 function lecEstadoVinculo(v){
   if(v.estado_equipo === 'fuera_servicio') return ['Dado de baja', 'var(--text3)'];
   const d = v.dias_restantes;
-  if(v.semaforo === 'gris' || !v.ultimo_preventivo){
-    if(d === null || d === undefined) return ['1er preventivo pendiente', 'var(--text3)'];
-    return [d < 0 ? '1er preventivo · hace ' + Math.abs(d) + ' d.' : '1er preventivo · en ' + d + ' d.', 'var(--text3)'];
+  const sinFecha = d === null || d === undefined;
+  const color = sinFecha || d < 0 ? 'var(--red)' : d <= 7 ? '#A67C00' : 'var(--green)';
+  if(!v.ultimo_preventivo){
+    if(sinFecha) return ['1er preventivo pendiente', color];
+    return [d < 0 ? '1er preventivo · hace ' + Math.abs(d) + ' d.' : d === 0 ? '1er preventivo · hoy' : '1er preventivo · en ' + d + ' d.', color];
   }
-  if(d < 0) return ['Venció hace ' + Math.abs(d) + ' d.', 'var(--red)'];
-  if(d <= 7) return [d === 0 ? 'Vence hoy' : 'Vence en ' + d + ' d.', '#D9580B'];
-  if(d <= 14) return ['Vence en ' + d + ' d.', '#A67C00'];
-  return ['Vence en ' + d + ' d.', 'var(--green)'];
+  if(sinFecha) return ['Sin fecha de vencimiento', color];
+  if(d < 0) return ['Venció hace ' + Math.abs(d) + ' d.', color];
+  return [d === 0 ? 'Vence hoy' : 'Vence en ' + d + ' d.', color];
 }
 
 function lecVinculo(v){

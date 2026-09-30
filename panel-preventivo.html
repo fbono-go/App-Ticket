@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Panel de control · GO Mantenimiento</title>
+<script>
+/* Se entra por mantenimiento.html, que pide la clave. */
+(function () {
+  var c = '';
+  try { c = localStorage.getItem('go_admin_clave') || ''; } catch (e) { /* nada */ }
+  if (!c) location.replace('mantenimiento.html?volver=panel-preventivo.html');
+})();
+</script>
 <style>
 :root{
   --tinta:#10161D; --tinta2:#48545F; --tinta3:#8593A0;
@@ -11,8 +19,7 @@
   --ambar:#B8791A; --ambar-pal:#FDF2DC; --ambar-bor:#E9CD93;
   --rojo:#C0372B; --rojo-pal:#FBE6E3; --rojo-bor:#EEBBB4;
   --verde:#166F45; --verde-pal:#E0F1E8; --verde-bor:#A9D2BC;
-  /* vencimientos: naranja = 0 a 7 días, amarillo = 8 a 14 días */
-  --naranja:#C2530A; --naranja-bar:#F26B0F; --naranja-pal:#FDE8D8;
+  /* vencimientos: tres colores. amarillo = vence en 7 días o menos */
   --amarillo:#8F6B00; --amarillo-bar:#E6B400; --amarillo-pal:#FBF1CC;
   --linea:#C3CDD6;
   --mono:ui-monospace,'SF Mono',SFMono-Regular,Menlo,Consolas,monospace;
@@ -26,6 +33,7 @@ body{margin:0;background:var(--papel);color:var(--tinta);font-family:var(--sans)
 .top-in{max-width:1240px;margin:0 auto;}
 .marca{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;
   color:#7FA9E8;}
+.inicio{display:inline-block;color:#8DB4EE;text-decoration:none;font-weight:600;font-size:13.5px;margin-bottom:8px;}
 .top h1{font-size:24px;margin:5px 0 14px;letter-spacing:-.025em;font-weight:800;}
 .filtros{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px;}
 .f label{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.13em;
@@ -59,7 +67,7 @@ select:focus{outline:2px solid var(--azul);outline-offset:1px;}
   line-height:1;}
 .kpi.r dd{color:var(--rojo);} .kpi.a dd{color:var(--ambar);}
 .kpi.v dd{color:var(--verde);} .kpi.g dd{color:var(--tinta3);}
-.kpi.n dd{color:var(--naranja);} .kpi.y dd{color:var(--amarillo);}
+.kpi.y dd{color:var(--amarillo);}
 .kpi small{display:block;font-size:12px;color:var(--tinta3);margin-top:5px;}
 
 .rotulo{font-family:var(--mono);font-size:10px;letter-spacing:.17em;text-transform:uppercase;
@@ -83,7 +91,6 @@ td.num{font-family:var(--mono);text-align:right;}
 .pill.a{background:var(--ambar-pal);color:var(--ambar);}
 .pill.v{background:var(--verde-pal);color:var(--verde);}
 .pill.g{background:#EEF1F5;color:var(--tinta2);}
-.pill.n{background:var(--naranja-pal);color:var(--naranja);}
 .pill.y{background:var(--amarillo-pal);color:var(--amarillo);}
 
 /* ── bandeja ────────────────────────────────────────────────────── */
@@ -114,7 +121,7 @@ td.num{font-family:var(--mono);text-align:right;}
 /* ── barra de cumplimiento ──────────────────────────────────────── */
 .barra{height:9px;background:#E3E8EE;border-radius:5px;overflow:hidden;display:flex;min-width:110px;}
 .barra i{display:block;height:100%;}
-.barra .v{background:var(--verde);} .barra .n{background:var(--naranja-bar);}
+.barra .v{background:var(--verde);}
 .barra .y{background:var(--amarillo-bar);}
 .barra .r{background:var(--rojo);} .barra .g{background:#B9C3CD;}
 
@@ -128,7 +135,6 @@ td.num{font-family:var(--mono);text-align:right;}
   padding:10px 12px;font-family:inherit;font-size:12.5px;color:var(--tinta2);cursor:pointer;}
 .est-chip b{font-family:var(--mono);font-size:24px;line-height:1.1;color:var(--tinta);}
 .est-chip.rojo{border-left-color:var(--rojo);} .est-chip.rojo b{color:var(--rojo);}
-.est-chip.naranja{border-left-color:var(--naranja-bar);} .est-chip.naranja b{color:var(--naranja);}
 .est-chip.amarillo{border-left-color:var(--amarillo-bar);} .est-chip.amarillo b{color:var(--amarillo);}
 .est-chip.verde{border-left-color:var(--verde);} .est-chip.verde b{color:var(--verde);}
 .est-chip.gris b{color:var(--tinta3);}
@@ -143,7 +149,6 @@ td.num{font-family:var(--mono);text-align:right;}
 .sem-barra.vacia{background:var(--linea);}
 .sem-barra i{display:block;width:100%;}
 .sem-barra i.rojo,.leyenda i.rojo{background:var(--rojo);}
-.sem-barra i.naranja,.leyenda i.naranja{background:var(--naranja-bar);}
 .sem-barra i.amarillo,.leyenda i.amarillo{background:var(--amarillo-bar);}
 .sem-barra i.verde,.leyenda i.verde{background:var(--verde);}
 .sem-l{font-family:var(--mono);font-size:10.5px;color:var(--tinta3);white-space:nowrap;}
@@ -167,11 +172,11 @@ td.num{font-family:var(--mono);text-align:right;}
 /* mismo formato que las tarjetas de la app de supervisores: línea de color a la izquierda */
 .eq{background:var(--chapa);border:1px solid var(--linea);border-left:3px solid var(--linea);
   border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;}
-.eq.rojo{border-left-color:var(--rojo);} .eq.naranja{border-left-color:var(--naranja-bar);}
+.eq.rojo{border-left-color:var(--rojo);}
 .eq.amarillo{border-left-color:var(--amarillo-bar);} .eq.verde{border-left-color:var(--verde);}
 .eq-cab{display:flex;justify-content:space-between;align-items:center;gap:8px;}
 .eq-est{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--tinta3);}
-.eq.rojo .eq-est{color:var(--rojo);} .eq.naranja .eq-est{color:var(--naranja);}
+.eq.rojo .eq-est{color:var(--rojo);}
 .eq.amarillo .eq-est{color:var(--amarillo);} .eq.verde .eq-est{color:var(--verde);}
 .eq-id{font-family:var(--mono);font-size:11.5px;color:var(--tinta3);}
 .eq-tit{font-size:14.5px;font-weight:700;margin-top:3px;}
@@ -220,6 +225,7 @@ td.num{font-family:var(--mono);text-align:right;}
 
 <div class="top">
   <div class="top-in">
+    <a class="inicio" href="mantenimiento.html">← Inicio</a>
     <div class="marca">GO Mantenimiento · Grupo Oroño</div>
     <h1>Panel de control</h1>
     <div class="filtros">
@@ -280,7 +286,7 @@ td.num{font-family:var(--mono);text-align:right;}
   <!-- ── atención ── -->
   <section class="vista" id="v-atencion">
     <h2>Equipos a atender</h2>
-    <p class="sub">Lo vencido, lo sin registro y lo que vence en los próximos 30 días, del más
+    <p class="sub">Lo vencido, lo que no tiene fecha y lo que vence en los próximos 30 días, del más
       urgente al menos urgente. Tocá un número para filtrar. Los que faltan más de 30 días
       se cuentan pero no se listan.</p>
     <div id="atencion"><div class="cargando">Cargando…</div></div>
@@ -586,41 +592,36 @@ td.num{font-family:var(--mono);text-align:right;}
   }
 
   /* ── estado de vencimiento ──────────────────────────────────── */
-  /* Única regla de colores del panel. preventivo-ui.js (app de proveedores y
-     oficiales) repite esta misma regla: si cambia, cambiar en los dos.
-       rojo     → ya venció
-       naranja  → vence en 0 a 7 días
-       amarillo → vence en 8 a 14 días
-       verde    → faltan 15 días o más
-       gris     → nunca se le hizo un preventivo. Puede tener fecha prevista
-                  (el alta reparte el primer vencimiento), pero no cuenta
-                  como vencido: es el primer preventivo pendiente.          */
-  var ESTADOS = ['rojo', 'naranja', 'amarillo', 'verde', 'gris'];
-  var ORDEN_EST = { rojo: 0, naranja: 1, amarillo: 2, gris: 3, verde: 4 };
-  var NOMBRE_EST = { rojo: 'Vencidos', naranja: 'Vencen en 7 días', amarillo: 'Vencen en 8 a 14 días',
-    verde: 'Al día', gris: 'Sin registro' };
+  /* Tres colores, los mismos que el servidor y las apps (preventivo-ui.js e
+     index.html repiten esta regla: si cambia, cambiar en los tres).
+       rojo     → ya venció, o no tiene fecha
+       amarillo → vence en 7 días o menos
+       verde    → faltan 8 días o más
+     Un equipo sin ningún preventivo se pinta por su primera fecha prevista
+     (la reparte el alta), como cualquier otro.                             */
+  var ORDEN_EST = { rojo: 0, amarillo: 1, verde: 2 };
+  var NOMBRE_EST = { rojo: 'Vencidos', amarillo: 'Vencen en 7 días', verde: 'Al día' };
 
   function estadoVenc(dias) {
-    if (dias === null || dias === undefined || !isFinite(dias)) return 'gris';
-    if (dias < 0) return 'rojo';
-    if (dias <= 7) return 'naranja';
-    if (dias <= 14) return 'amarillo';
+    if (dias === null || dias === undefined || !isFinite(dias) || dias < 0) return 'rojo';
+    if (dias <= 7) return 'amarillo';
     return 'verde';
   }
   /* Estado de un equipo. Sirve también para listados que traen el semáforo
      del servidor pero quizás no los días. */
   function estadoDe(e) {
-    if (e.semaforo === 'gris' || ('ultimo_preventivo' in e && !e.ultimo_preventivo)) return 'gris';
     if (typeof e.dias_restantes === 'number') return estadoVenc(e.dias_restantes);
-    return e.semaforo === 'rojo' ? 'rojo' : e.semaforo === 'amarillo' ? 'amarillo' : 'verde';
+    if (e.semaforo === 'amarillo' || e.semaforo === 'verde') return e.semaforo;
+    return 'rojo';
   }
   function textoVenc(e) {
     var dias = e.dias_restantes;
-    if (e._est === 'gris') {
+    if ('ultimo_preventivo' in e && !e.ultimo_preventivo) {
       if (dias === null || dias === undefined) return '1er preventivo pendiente';
       if (dias < 0) return '1er preventivo · hace ' + Math.abs(dias) + ' d.';
       return dias === 0 ? '1er preventivo · hoy' : '1er preventivo · en ' + dias + ' d.';
     }
+    if (dias === null || dias === undefined) return 'Sin fecha de vencimiento';
     if (dias < 0) return 'Venció hace ' + Math.abs(dias) + ' d.';
     if (dias === 0) return 'Vence hoy';
     return 'Vence en ' + dias + ' d.';
@@ -631,8 +632,8 @@ td.num{font-family:var(--mono);text-align:right;}
     return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
   }
 
-  /* `atencion` trae lo vencido, lo sin registro y lo que vence dentro de 30
-     días. Lo que falta más de 30 días viene solo contado en totales.verde. */
+  /* `atencion` trae lo vencido, lo que no tiene fecha y lo que vence dentro de 30
+     días. Lo que falta más de 30 días viene solo contado (totales.verde_sin_detalle). */
   function atencionConEstado() {
     var s = DATOS.semaforo || {};
     if (!s._atencion) {
@@ -647,7 +648,9 @@ td.num{font-family:var(--mono);text-align:right;}
   }
   function conteo() {
     var s = DATOS.semaforo || {};
-    var c = { rojo: 0, naranja: 0, amarillo: 0, verde: (s.totales && s.totales.verde) || 0, gris: 0 };
+    var t = s.totales || {};
+    // los verdes que vienen en la lista se cuentan uno por uno; el resto viene contado
+    var c = { rojo: 0, amarillo: 0, verde: t.verde_sin_detalle != null ? t.verde_sin_detalle : (t.verde || 0) };
     atencionConEstado().forEach(function (e) { c[e._est]++; });
     return c;
   }
@@ -662,10 +665,8 @@ td.num{font-family:var(--mono);text-align:right;}
     $('resumen').innerHTML =
       kpi('Equipos cargados', total, '', 'inventario relevado hasta hoy') +
       kpi('Vencidos', c.rojo, 'r', 'deberían ser la excepción') +
-      kpi('Vencen en 7 días', c.naranja, 'n', 'para esta semana') +
-      kpi('Vencen en 8 a 14 días', c.amarillo, 'y', 'para la semana que viene') +
-      kpi('Al día', c.verde, 'v', alDia + ' % del parque') +
-      kpi('Sin registro', c.gris, 'g', 'nunca se les hizo un preventivo');
+      kpi('Vencen en 7 días', c.amarillo, 'y', 'para esta semana') +
+      kpi('Al día', c.verde, 'v', alDia + ' % del parque');
   }
 
   function kpi(titulo, valor, clase, pie) {
@@ -684,7 +685,7 @@ td.num{font-family:var(--mono);text-align:right;}
     }
     var c = conteo();
     var total = s.total || 0;
-    var pend = c.rojo + c.naranja + c.amarillo;
+    var pend = c.rojo + c.amarillo;
 
     var texto = '';
     if (c.rojo > total * 0.25 && total > 20) {
@@ -705,12 +706,10 @@ td.num{font-family:var(--mono);text-align:right;}
     $('cumplimiento').innerHTML = texto +
       '<table><thead><tr><th>Situación</th><th>Equipos</th><th>Proporción</th></tr></thead><tbody>' +
       fila('Vencidos', c.rojo, total, 'r') +
-      fila('Vencen en 7 días', c.naranja, total, 'n') +
-      fila('Vencen en 8 a 14 días', c.amarillo, total, 'y') +
+      fila('Vencen en 7 días', c.amarillo, total, 'y') +
       fila('Al día', c.verde, total, 'v') +
-      fila('Sin registro', c.gris, total, 'g') +
       '</tbody></table>' +
-      '<p class="sub" style="margin-top:12px">Trabajo pendiente en las próximas dos semanas ' +
+      '<p class="sub" style="margin-top:12px">Trabajo pendiente esta semana ' +
       '(incluye lo vencido): <b>' + pend + '</b> equipo' + (pend === 1 ? '' : 's') + '.</p>';
   }
 
@@ -722,26 +721,24 @@ td.num{font-family:var(--mono);text-align:right;}
   }
 
   /* ── zonas ──────────────────────────────────────────────────── */
-  /* El servidor agrupa con su propio semáforo (30 días). Acá se recuentan los
-     equipos de cada zona con la regla del panel; total y adelantables se toman
-     tal cual del servidor. */
+  /* Se recuentan los equipos de cada zona con la regla del panel; total y
+     adelantables se toman tal cual del servidor. */
   function pintarZonas() {
     var zonas = (DATOS.semaforo && DATOS.semaforo.zonas) || [];
     var por = {};
     atencionConEstado().forEach(function (e) {
       var k = (e.lugar || '') + '|' + (e.piso || '');
-      por[k] = por[k] || { rojo: 0, naranja: 0, amarillo: 0, gris: 0, verde: 0 };
+      por[k] = por[k] || { rojo: 0, amarillo: 0, verde: 0 };
       por[k][e._est]++;
     });
     var conTrabajo = zonas.map(function (z) {
       var n = por[(z.lugar || '') + '|' + (z.piso || '')] ||
-        { rojo: 0, naranja: 0, amarillo: 0, gris: 0 };
+        { rojo: 0, amarillo: 0 };
       return Object.assign({}, z, { _n: n });
     }).filter(function (z) {
-      return z._n.rojo || z._n.naranja || z._n.amarillo || z._n.gris;
+      return z._n.rojo || z._n.amarillo;
     }).sort(function (a, b) {
-      return (b._n.rojo - a._n.rojo) || (b._n.naranja - a._n.naranja) ||
-        (b._n.amarillo - a._n.amarillo) || (b.total - a.total);
+      return (b._n.rojo - a._n.rojo) || (b._n.amarillo - a._n.amarillo) || (b.total - a.total);
     });
     if (!conTrabajo.length) {
       $('zonas').innerHTML = '<div class="vacio">No hay zonas con trabajo pendiente.</div>';
@@ -749,12 +746,11 @@ td.num{font-family:var(--mono);text-align:right;}
     }
     function celda(n, cls) { return '<td class="num">' + (n ? '<span class="pill ' + cls + '">' + n + '</span>' : '—') + '</td>'; }
     $('zonas').innerHTML = '<div class="tabla-env"><table><thead><tr><th>Lugar</th><th>Piso</th>' +
-      '<th>Vencidos</th><th>7 días</th><th>8 a 14 días</th><th>Sin registro</th><th>Total</th>' +
+      '<th>Vencidos</th><th>En 7 días</th><th>Total</th>' +
       '<th>Adelantables</th></tr></thead><tbody>' +
       conTrabajo.map(function (z) {
         return '<tr><td>' + esc(z.lugar || '—') + '</td><td>' + esc(z.piso || '—') + '</td>' +
-          celda(z._n.rojo, 'r') + celda(z._n.naranja, 'n') + celda(z._n.amarillo, 'y') +
-          celda(z._n.gris, 'g') +
+          celda(z._n.rojo, 'r') + celda(z._n.amarillo, 'y') +
           '<td class="num">' + z.total + '</td>' +
           '<td class="num">' + (z.adelantables || '—') + '</td></tr>';
       }).join('') + '</tbody></table></div>' +
@@ -772,13 +768,14 @@ td.num{font-family:var(--mono);text-align:right;}
   }
 
   /* Cinco semanas: el servidor detalla solo lo que vence dentro de 30 días.
-     Lo vencido se suma a la semana actual, porque es trabajo de ahora. */
+     Lo vencido y lo que no tiene fecha se suma a la semana actual, porque es
+     trabajo de ahora. */
   function graficoSemanas(lista) {
     var sem = [];
-    for (var i = 0; i < 5; i++) sem.push({ rojo: 0, naranja: 0, amarillo: 0, verde: 0, total: 0 });
+    for (var i = 0; i < 5; i++) sem.push({ rojo: 0, amarillo: 0, verde: 0, total: 0 });
     lista.forEach(function (e) {
-      if (e._est === 'gris') return;
-      var i = e.dias_restantes < 0 ? 0 : Math.min(4, Math.floor(e.dias_restantes / 7));
+      var d = e.dias_restantes;
+      var i = (d === null || d === undefined || d < 0) ? 0 : Math.min(4, Math.floor(d / 7));
       sem[i][e._est]++; sem[i].total++;
     });
     var max = Math.max.apply(null, sem.map(function (s) { return s.total; }).concat([1]));
@@ -786,7 +783,7 @@ td.num{font-family:var(--mono);text-align:right;}
     return '<div class="sem">' + sem.map(function (s, i) {
       var ini = new Date(hoy); ini.setDate(hoy.getDate() + i * 7);
       var alto = s.total ? Math.max(4, Math.round(96 * s.total / max)) : 3;
-      var partes = ['rojo', 'naranja', 'amarillo', 'verde'].map(function (k) {
+      var partes = ['rojo', 'amarillo', 'verde'].map(function (k) {
         return s[k] ? '<i class="' + k + '" style="height:' + (100 * s[k] / s.total) + '%" title="' +
           NOMBRE_EST[k] + ': ' + s[k] + '"></i>' : '';
       }).join('');
@@ -800,9 +797,9 @@ td.num{font-family:var(--mono);text-align:right;}
   function pintarAtencion() {
     var todos = atencionConEstado();
     var c = conteo();
-    var chips = '<div class="est-chips">' + ['rojo', 'naranja', 'amarillo', 'verde', 'gris'].map(function (k) {
+    var chips = '<div class="est-chips">' + ['rojo', 'amarillo', 'verde'].map(function (k) {
       var n = k === 'verde' ? todos.filter(function (e) { return e._est === 'verde'; }).length : c[k];
-      var nom = k === 'verde' ? 'Vencen en 15 a 30 días' : NOMBRE_EST[k];
+      var nom = k === 'verde' ? 'Vencen en 8 a 30 días' : NOMBRE_EST[k];
       return '<button type="button" class="est-chip ' + k + (FILTRO_EST === k ? ' on' : '') +
         '" data-est="' + k + '"><b>' + n + '</b>' + nom + '</button>';
     }).join('') + '</div>';
@@ -811,8 +808,8 @@ td.num{font-family:var(--mono);text-align:right;}
 
     var cab = chips +
       '<div class="rotulo">Carga por semana</div>' + graficoSemanas(todos) +
-      '<div class="leyenda"><span><i class="rojo"></i>Vencido</span><span><i class="naranja"></i>0 a 7 días</span>' +
-      '<span><i class="amarillo"></i>8 a 14 días</span><span><i class="verde"></i>15 días o más</span></div>' +
+      '<div class="leyenda"><span><i class="rojo"></i>Vencido o sin fecha</span>' +
+      '<span><i class="amarillo"></i>7 días o menos</span><span><i class="verde"></i>8 días o más</span></div>' +
       '<div class="agrupar"><span>Agrupar por</span>' + [['lugar', 'Lugar'], ['responsable', 'Responsable'], ['tipo', 'Tipo de equipo']]
         .map(function (o) {
           return '<button type="button" class="' + (AGRUPAR === o[0] ? 'on' : '') + '" data-agr="' + o[0] + '">' + o[1] + '</button>';
@@ -898,9 +895,7 @@ td.num{font-family:var(--mono);text-align:right;}
         l.map(function (e) {
           var est = estadoDe(e);
           var pill = est === 'rojo' ? '<span class="pill r">vencido</span>'
-            : est === 'naranja' ? '<span class="pill n">vence en 7 días</span>'
-            : est === 'amarillo' ? '<span class="pill y">vence en 14 días</span>'
-            : est === 'gris' ? '<span class="pill g">sin registro</span>'
+            : est === 'amarillo' ? '<span class="pill y">vence en 7 días</span>'
             : '<span class="pill v">al día</span>';
           return '<tr style="cursor:pointer" onclick="verFicha(\'' + esc(e.equipo_id) + '\')">' +
             '<td class="mono">' + esc(e.equipo_id) + '</td>' +
@@ -933,7 +928,7 @@ td.num{font-family:var(--mono);text-align:right;}
         kpi('Desvíos', res.correctivos || 0, res.correctivos ? 'a' : '', 'detectados en preventivos') +
         kpi('Vence', e.dias_restantes === null || e.dias_restantes === undefined ? '—'
               : (e.dias_restantes < 0 ? 'venció' : 'en ' + e.dias_restantes + ' d'),
-            { rojo: 'r', naranja: 'n', amarillo: 'y', verde: 'v', gris: 'g' }[estadoDe(e)],
+            { rojo: 'r', amarillo: 'y', verde: 'v' }[estadoDe(e)],
             e.proximo_venc || 'sin registro') +
         '</dl>';
 
@@ -1000,7 +995,7 @@ td.num{font-family:var(--mono);text-align:right;}
   }
 
   function vinculoPd(v) {
-    var est = v.estado_equipo === 'fuera_servicio' ? 'g' : ({ rojo: 'r', naranja: 'n', amarillo: 'y', verde: 'v', gris: 'g' }[estadoDe(v)]);
+    var est = v.estado_equipo === 'fuera_servicio' ? 'g' : ({ rojo: 'r', amarillo: 'y', verde: 'v' }[estadoDe(v)]);
     var e2 = Object.assign({}, v, { _est: estadoDe(v) });
     return '<tr class="pd-vinc" data-equipo="' + esc(v.equipo_id) + '"><td class="mono">' + esc(v.equipo_id) + '</td>' +
       '<td>' + esc([v.tipo_nombre || nombreTipo(v.tipo), v.marca].filter(Boolean).join(' · ')) + '</td>' +
