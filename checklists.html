@@ -234,7 +234,7 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
 
   function api(ruta, cuerpo) {
     var ctrl = new AbortController();
-    var t = setTimeout(function () { ctrl.abort(); }, 90000);
+    var t = setTimeout(function () { ctrl.abort(); }, 120000);   // el servidor espera a la planilla hasta 90 s
     var h = { Authorization: 'Clave ' + CLAVE };
     if (cuerpo) h['Content-Type'] = 'application/json';
     if (cuerpo) cuerpo.autor = AUTOR;
@@ -399,11 +399,19 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
     }
     $('lado').innerHTML =
       '<button type="button" class="b pri nuevo" id="nuevoTipo">+ Nuevo tipo</button>' +
+      '<button type="button" class="b nuevo" id="importar">Importar plantilla</button>' +
+      '<input type="file" id="archivoPlantilla" accept=".json,application/json" class="oculto">' +
       '<div class="grupo">Tipos de equipo</div>' + equipos.map(item).join('') +
       '<div class="grupo">Bloques compartidos</div>' + bloques.map(item).join('') +
       (retirados.length ? '<div class="grupo">Retirados</div>' + retirados.map(item).join('') : '');
 
     $('nuevoTipo').onclick = function () { if (seguirSiHayCambios()) abrirTipoForm(null); };
+    $('importar').onclick = function () { if (seguirSiHayCambios()) $('archivoPlantilla').click(); };
+    $('archivoPlantilla').onchange = function (e) {
+      var f = e.target.files && e.target.files[0];
+      e.target.value = '';
+      if (f) f.text().then(importar, function () { toast('No se pudo leer el archivo', true); });
+    };
     Array.prototype.forEach.call($('lado').querySelectorAll('[data-tipo]'), function (b) {
       b.onclick = function () { if (seguirSiHayCambios()) abrirTipo(b.getAttribute('data-tipo')); };
     });
@@ -901,6 +909,55 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
       });
     };
     sync();
+  }
+
+  /* ════════════════ importar una plantilla ════════════════ */
+  /**
+   * Una plantilla es un archivo .json con un tipo y sus preguntas. Carga todo
+   * con los mismos pedidos que el editor, uno por uno, así que pasa por las
+   * mismas validaciones del servidor. Si el tipo ya existe (mismas letras),
+   * solo agrega las preguntas que todavía no tiene: se puede reintentar sin
+   * duplicar nada.
+   */
+  function importar(texto) {
+    var P;
+    try { P = JSON.parse(texto); } catch (e) { toast('El archivo no es una plantilla válida', true); return; }
+    var T = P && P.tipo, Q = (P && P.preguntas) || [];
+    if (!T || !T.nombre || !/^[A-Za-z]{2}$/.test(T.prefijo_qr || '') || !Array.isArray(Q)) {
+      toast('A la plantilla le falta el tipo, sus letras o la lista de preguntas', true); return;
+    }
+    var pref = T.prefijo_qr.toUpperCase();
+    var existe = CAT.tipos.find(function (t) { return t.prefijo_qr === pref; });
+    if (existe && existe.nombre.toLowerCase() !== String(T.nombre).toLowerCase() &&
+        !confirm('Las letras ' + pref + ' ya son de «' + existe.nombre + '». ¿Agregar las preguntas a ese tipo?')) return;
+    if (!confirm((existe ? 'Se agregan a «' + existe.nombre + '»' : 'Se crea «' + T.nombre + '» (' + pref + ')') +
+        ' con hasta ' + Q.length + ' preguntas. ¿Seguir?')) return;
+
+    S.ocupado = true;
+    var paso = existe ? Promise.resolve({ tipo_id: existe.tipo_id })
+      : api('/admin/tipo', Object.assign({}, T, { prefijo_qr: pref })).then(function (r) { CAT = r; return r; });
+    var creadas = 0, salteadas = 0;
+    paso.then(function (r) {
+      var tipoId = r.tipo_id;
+      var ya = {};
+      propias(tipoId, true).forEach(function (c) { ya[c.etiqueta.trim().toLowerCase()] = 1; });
+      return Q.reduce(function (cadenaP, q, i) {
+        return cadenaP.then(function () {
+          if (ya[String(q.etiqueta || '').trim().toLowerCase()]) { salteadas++; return; }
+          toast('Cargando pregunta ' + (i + 1) + ' de ' + Q.length + '…');
+          return api('/admin/campo', Object.assign({}, q, { tipo_id: tipoId })).then(function (x) { CAT = x; creadas++; })
+            .catch(function (e) { throw new Error('«' + q.etiqueta + '»: ' + e.message); });
+        });
+      }, Promise.resolve()).then(function () { return tipoId; });
+    }).then(function (tipoId) {
+      toast('Listo: ' + creadas + ' preguntas cargadas' + (salteadas ? ', ' + salteadas + ' ya estaban' : ''));
+      S.ocupado = false;
+      abrirTipo(tipoId);
+    }).catch(function (e) {
+      S.ocupado = false;
+      toast('Se frenó en ' + e.message + '. Lo anterior quedó guardado; podés reintentar.', true);
+      pintarLado(); pintar();
+    });
   }
 
   /* ════════════════ arranque ════════════════ */
