@@ -435,21 +435,32 @@ td.num{font-family:var(--mono);text-align:right;}
     if ($('resp').value) p.push('responsable=' + encodeURIComponent($('resp').value));
     return p.length ? '?' + p.join('&') : '';
   }
+  /* Solo la institución: la bandeja, el historial y las empresas no filtran por responsable. */
+  function qInst() {
+    return $('inst').value ? '?institucion=' + encodeURIComponent($('inst').value) : '';
+  }
+
+  /* Si se cambia el filtro con una consulta en curso, solo se pinta la última:
+     sin esto, una respuesta lenta de la institución anterior pisa a la nueva. */
+  var TURNO = 0, TURNO_HIST = 0;
 
   function cargar() {
+    var mio = ++TURNO;
     $('estado').textContent = 'Consultando…';
     $('refrescar').disabled = true;
 
     Promise.all([
       pedir('/semaforo' + query()),
-      pedir('/bandeja')
+      pedir('/bandeja' + qInst())
     ]).then(function (r) {
+      if (mio !== TURNO) return;
       DATOS.semaforo = r[0];
       DATOS.bandeja = r[1];
       pintarTodo();
       $('estado').textContent = 'Actualizado ' +
         new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
     }).catch(function (e) {
+      if (mio !== TURNO) return;
       $('estado').textContent = '';
       var msg = '<div class="aviso mal"><b>No se pudo consultar el sistema</b>' +
         esc(e.message) + '. Si el proxy estuvo dormido, puede tardar hasta un minuto en ' +
@@ -457,7 +468,7 @@ td.num{font-family:var(--mono);text-align:right;}
       ['bandeja', 'zonas', 'atencion', 'cumplimiento', 'historial'].forEach(function (id) {
         $(id).innerHTML = msg;
       });
-    }).then(function () { $('refrescar').disabled = false; });
+    }).then(function () { if (mio === TURNO) $('refrescar').disabled = false; });
   }
 
   function pintarTodo() {
@@ -580,13 +591,17 @@ td.num{font-family:var(--mono);text-align:right;}
 
   /* ── historial ──────────────────────────────────────────────── */
   function cargarHistorial() {
+    var mio = ++TURNO_HIST;
     var estado = $('hist-estado').value;
     $('historial').innerHTML = '<div class="cargando">Cargando…</div>';
-    var q = '/correctivos' + (estado && estado !== 'todos' ? '?estado=' + estado : '');
+    var q = '/correctivos' + qInst();
+    if (estado && estado !== 'todos') q += (q.indexOf('?') < 0 ? '?' : '&') + 'estado=' + encodeURIComponent(estado);
     pedir(q).then(function (r) {
+      if (mio !== TURNO_HIST) return;
       DATOS.historial = r;
       pintarHistorial();
     }).catch(function (e) {
+      if (mio !== TURNO_HIST) return;
       $('historial').innerHTML = '<div class="aviso mal"><b>No se pudo consultar</b>' +
         esc(e.message) + '</div>';
     });
@@ -1093,8 +1108,7 @@ td.num{font-family:var(--mono);text-align:right;}
 
   /** El filtro "Responsable" se arma con las empresas que tienen equipos. */
   function cargarEmpresasFiltro() {
-    var q = $('inst').value ? '?institucion=' + encodeURIComponent($('inst').value) : '';
-    pedir('/empresas' + q).then(function (r) {
+    pedir('/empresas' + qInst()).then(function (r) {
       var sel = $('resp'), antes = sel.value;
       Array.prototype.slice.call(sel.options).forEach(function (o) {
         if (o.value && o.value !== 'oficial') o.remove();
@@ -1263,8 +1277,10 @@ td.num{font-family:var(--mono);text-align:right;}
   });
   $('refrescar').addEventListener('click', function () { DATOS.historial = null; cargar(); });
   $('inst').addEventListener('change', function () {
+    DATOS.historial = null;      // el historial también depende de la institución
     cargar();
     cargarEmpresasFiltro();
+    if ($('v-historial').classList.contains('on')) cargarHistorial();
     if ($('v-empresas').classList.contains('on')) cargarEmpresas(false);
   });
   $('resp').addEventListener('change', cargar);
