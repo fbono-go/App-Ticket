@@ -21,7 +21,7 @@
   if (window.__BANDEJA_CARGADA) return;
   window.__BANDEJA_CARGADA = true;
 
-  var BUILD = 'BAN-v4';
+  var BUILD = 'BAN-v5';
   var AREA_MANTENIMIENTO = '1';
 
   var $ = function (id) { return document.getElementById(id); };
@@ -47,6 +47,25 @@
     var s = (window.sectorInfo && c.sector_id) ? window.sectorInfo(c.sector_id) : null;
     return (s && s.ref) || c.mi_email || 'referente';
   };
+
+  /**
+   * Solo lo del sector que está configurado en Config. Cada sector (A, B, C, E)
+   * tiene sus instituciones —las mismas que usa el resto de la app en
+   * FACILITY_SECTOR—, y acá no tiene que aparecer nada de las demás.
+   * Se calcula cada vez que se consulta, así un cambio de sector en Config
+   * se nota sin recargar. Un sector sin instituciones asignadas no muestra nada.
+   * Solo si la app no trae ese mapa (no debería pasar) se pide sin filtro.
+   */
+  function alcance(ruta) {
+    var mapa = null;
+    try { mapa = (typeof FACILITY_SECTOR !== 'undefined') ? FACILITY_SECTOR : null; } catch (e) {}
+    if (!mapa) return ruta;
+    var sector = null;
+    try { sector = (typeof SECTOR_ID !== 'undefined') ? SECTOR_ID : null; } catch (e) {}
+    sector = Number(sector || cfg().sector_id || 2);
+    var ids = Object.keys(mapa).filter(function (k) { return Number(mapa[k]) === sector; });
+    return ruta + (ruta.indexOf('?') === -1 ? '?' : '&') + 'instituciones=' + (ids.length ? ids.join(',') : '0');
+  }
 
   var PENDIENTES = [];
   var CAMBIOS = [];
@@ -86,9 +105,9 @@
     if (c) c.innerHTML = '<div class="ban-cargando">Buscando correctivos pendientes…</div>';
 
     Promise.all([
-      pedir('/bandeja'),
+      pedir(alcance('/bandeja')),
       // las correcciones que pidieron los técnicos se revisan en el mismo lugar
-      pedir('/cambios?estado=pendiente').catch(function () { return { cambios: [] }; }),
+      pedir(alcance('/cambios?estado=pendiente')).catch(function () { return { cambios: [] }; }),
     ]).then(function (rs) {
       PENDIENTES = rs[0].pendientes || [];
       CAMBIOS = rs[1].cambios || [];
@@ -533,8 +552,8 @@
     // se consulta al arrancar solo para marcar el badge: tiene que contar las
     // dos cosas que esperan revisión, no solo los correctivos
     Promise.all([
-      pedir('/bandeja').catch(function () { return { pendientes: [] }; }),
-      pedir('/cambios?estado=pendiente').catch(function () { return { cambios: [] }; }),
+      pedir(alcance('/bandeja')).catch(function () { return { pendientes: [] }; }),
+      pedir(alcance('/cambios?estado=pendiente')).catch(function () { return { cambios: [] }; }),
     ]).then(function (rs) {
       PENDIENTES = rs[0].pendientes || [];
       CAMBIOS = rs[1].cambios || [];
