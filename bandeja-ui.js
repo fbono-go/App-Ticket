@@ -8,12 +8,8 @@
 
        <script src="./bandeja-ui.js"></script>
 
-   POR QUÉ ACÁ Y NO EN EL PANEL WEB
-   Los tickets no se crean por la API de Zammad: se crean entrando al portal
-   de empleados con el email y la contraseña del referente. Esas credenciales
-   viven en la configuración de esta app y en ningún otro lado. El panel de
-   escritorio puede confirmar o descartar, pero no puede crear el ticket con
-   la identidad correcta. Por eso la aprobación vive donde vive la identidad.
+   El ticket se crea con ticket-correctivo.js (cargarlo antes que este
+   archivo): es el mismo código que usa el Panel de control.
    ═══════════════════════════════════════════════════════════════════════ */
 (function () {
   'use strict';
@@ -21,8 +17,7 @@
   if (window.__BANDEJA_CARGADA) return;
   window.__BANDEJA_CARGADA = true;
 
-  var BUILD = 'BAN-v5';
-  var AREA_MANTENIMIENTO = '1';
+  var BUILD = 'BAN-v6';
 
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) {
@@ -336,85 +331,41 @@
   }
 
   /**
-   * Crea el ticket en el portal y recién después marca el correctivo.
-   *
-   * Ese orden importa: si se marcara primero y el portal fallara, el caso
-   * desaparecería de la bandeja sin que exista el ticket, y nadie se enteraría.
+   * Crear el ticket y recién después marcar el correctivo: eso lo resuelve
+   * ticket-correctivo.js, que comparte con el Panel de control.
    */
   function confirmar(caso, dato) {
-    if (!EMAIL() || !PASS()) {
-      desbloquear(caso, 'Faltan tu email y contraseña del portal en Config', true);
+    if (!window.TicketCorrectivo) {
+      desbloquear(caso, 'No se creó: falta cargar ticket-correctivo.js', true);
       return;
     }
 
-    var t = dato.ticket || {};
-    var descripcion =
-      'Correctivo generado por el preventivo del ' + fechaCorta(dato.fecha_deteccion) + '.\n\n' +
-      'Equipo: ' + dato.equipo_id + (dato.tipo_nombre ? ' (' + dato.tipo_nombre + ')' : '') + '\n' +
-      (dato.ubicacion_detalle ? 'Ubicación exacta: ' + dato.ubicacion_detalle + '\n' : '') +
-      'Ubicación: ' + (dato.referencia || '') + '\n' +
-      'Lo detectó: ' + (dato.detectado_por || 'sin identificar') + '\n\n' +
-      'Desvíos:\n' +
-      (dato.desvios || []).map(function (d) {
-        return '· ' + (d.etiqueta || d.campo) + ': ' + (d.regla || d.valor);
-      }).join('\n') +
-      (dato.afecta_ambientes
-        ? '\n\nDe este equipo dependen ' + dato.afecta_ambientes + ' ambiente(s).' : '');
+    var m = caso.querySelector('[data-msg]');
+    bloquear(caso, '');
 
-    var datos = {
-      email: EMAIL(),
-      password: PASS(),
-      facility: String(t.institucion_id || ''),
-      cost_center: String(t.lugar_id || ''),
-      floor: String(t.piso_id || ''),
-      // en el portal es "descripción del lugar": ahí va "Habitación 5", no el piso otra vez
-      place_description: dato.ubicacion_detalle
-        ? dato.ubicacion_detalle + ' · ' + dato.equipo_id
-        : (dato.referencia || dato.equipo_id),
-      responsible_area: AREA_MANTENIMIENTO,
-      category: String(t.categoria_id || ''),
-      subcategory: t.subcategoria_id ? String(t.subcategoria_id) : '',
-      // corto y siempre igual: el detalle del desvío va en la descripción
-      title: 'Correctivo de ' + dato.equipo_id,
-      description: descripcion,
-      fotos: [],
-    };
-
-    if (!datos.facility || !datos.category) {
-      desbloquear(caso, 'Al equipo le faltan datos (institución o categoría). ' +
-        'Revisalo en la planilla.', true);
-      return;
-    }
-
-    bloquear(caso, 'Creando el ticket en el portal…');
-
-    fetch(PROXY() + '/api/crear-portal', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(datos),
-    }).then(function (r) {
-      return r.text().then(function (txt) {
-        var j = null;
-        try { j = JSON.parse(txt); } catch (e) {}
-        if (!r.ok || !j || !j.ok) {
-          throw new Error((j && j.error) || ('el portal respondió ' + r.status));
-        }
-        return j;
-      });
-    }).then(function () {
-      // el ticket ya existe: ahora sí se marca el correctivo
-      var m = caso.querySelector('[data-msg]');
-      if (m) m.textContent = 'Ticket creado. Guardando la decisión…';
+    window.TicketCorrectivo.confirmar(dato, function () {
       return pedir('/correctivo/' + encodeURIComponent(dato.correctivo_id), {
         method: 'POST',
         body: { accion: 'confirmado', decidido_por: QUIEN() },
       });
+    }, function (texto) {
+      if (m) m.textContent = texto;
     }).then(function () {
       sacar(caso, dato, 'Ticket creado');
       if (typeof window.refrescar === 'function') {
         try { window.refrescar(false); } catch (e) {}
       }
     }).catch(function (e) {
+      if (e.ticketCreado) {
+        // los botones quedan bloqueados: confirmar de nuevo duplicaría el ticket
+        if (m) {
+          m.textContent = 'El ticket SÍ se creó, pero no se pudo guardar la decisión (' +
+            e.message + '). No lo confirmes otra vez: actualizá y descartalo ' +
+            'indicando que ya tiene ticket.';
+          m.className = 'ban-msg on mal';
+        }
+        return;
+      }
       desbloquear(caso, 'No se creó: ' + e.message, true);
     });
   }

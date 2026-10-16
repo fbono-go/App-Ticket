@@ -371,6 +371,7 @@ td.num{font-family:var(--mono);text-align:right;}
   </div>
 </div>
 
+<script src="./ticket-correctivo.js?v=1"></script>
 <script>
 (function () {
   'use strict';
@@ -557,37 +558,72 @@ td.num{font-family:var(--mono);text-align:right;}
     var acc = b.getAttribute('data-acc');
     var msg = caso.querySelector('[data-msg]');
 
+    if (acc === 'confirmado') return confirmar(caso, id, msg);
+
     // Descartar es la decisión que después nadie recuerda por qué se tomó.
     // Pedir el motivo cuesta cinco segundos y evita esa conversación.
-    var motivo = '';
-    if (acc === 'descartado') {
-      motivo = prompt('¿Por qué se descarta? Queda registrado.') || '';
-      if (!motivo.trim()) return;
-    }
+    var motivo = prompt('¿Por qué se descarta? Queda registrado.') || '';
+    if (!motivo.trim()) return;
 
-    caso.querySelectorAll('button').forEach(function (x) { x.disabled = true; });
+    bloquear(caso, true);
     msg.textContent = 'Guardando…';
-
-    pedir('/correctivo/' + encodeURIComponent(id), {
-      method: 'POST',
-      body: { accion: acc, decidido_por: quienDecide(), motivo: motivo.trim() },
-    })
-      .then(function () {
-        caso.style.opacity = '.45';
-        msg.textContent = (acc === 'confirmado' ? 'Confirmado' : 'Descartado') +
-          ' por ' + quienDecide();
-        DATOS.bandeja.pendientes = (DATOS.bandeja.pendientes || [])
-          .filter(function (x) { return x.correctivo_id !== id; });
-        var n = $('n-bandeja');
-        n.textContent = DATOS.bandeja.pendientes.length;
-        n.style.display = DATOS.bandeja.pendientes.length ? 'inline' : 'none';
-        DATOS.historial = null;      // se recarga al abrir el historial
-      })
-      .catch(function (err) {
-        msg.textContent = 'Error: ' + err.message;
-        caso.querySelectorAll('button').forEach(function (x) { x.disabled = false; });
-      });
+    marcar(caso, id, 'descartado', motivo.trim(), msg).catch(function (err) {
+      msg.textContent = 'Error: ' + err.message;
+      bloquear(caso, false);
+    });
   });
+
+  /* ── decisiones sobre un correctivo ─────────────────────────── */
+  function bloquear(caso, si) {
+    caso.querySelectorAll('button').forEach(function (x) { x.disabled = si; });
+  }
+
+  /* Registra la decisión en la planilla y saca el caso de la lista. */
+  function marcar(caso, id, acc, motivo, msg) {
+    return pedir('/correctivo/' + encodeURIComponent(id), {
+      method: 'POST',
+      body: { accion: acc, decidido_por: quienDecide(), motivo: motivo },
+    }).then(function () {
+      caso.style.opacity = '.45';
+      msg.textContent = (acc === 'confirmado' ? 'Ticket creado y confirmado' : 'Descartado') +
+        ' por ' + quienDecide();
+      DATOS.bandeja.pendientes = (DATOS.bandeja.pendientes || [])
+        .filter(function (x) { return x.correctivo_id !== id; });
+      var n = $('n-bandeja');
+      n.textContent = DATOS.bandeja.pendientes.length;
+      n.style.display = DATOS.bandeja.pendientes.length ? 'inline' : 'none';
+      DATOS.historial = null;      // se recarga al abrir el historial
+    });
+  }
+
+  /* Confirmar = crear el ticket y recién después marcar el correctivo.
+     Lo resuelve ticket-correctivo.js, el mismo código que usa la bandeja de la app. */
+  function confirmar(caso, id, msg) {
+    if (!window.TicketCorrectivo) {
+      msg.textContent = 'No se creó: falta cargar ticket-correctivo.js';
+      return;
+    }
+    var c = ((DATOS.bandeja && DATOS.bandeja.pendientes) || [])
+      .filter(function (x) { return x.correctivo_id === id; })[0];
+    if (!c) { msg.textContent = 'No se encontró el caso. Tocá Actualizar.'; return; }
+
+    bloquear(caso, true);
+    window.TicketCorrectivo.confirmar(c, function () {
+      return marcar(caso, id, 'confirmado', '', msg);
+    }, function (texto) {
+      msg.textContent = texto;
+    }).catch(function (err) {
+      if (err.ticketCreado) {
+        // los botones quedan bloqueados: confirmar de nuevo duplicaría el ticket
+        msg.textContent = 'El ticket SÍ se creó, pero no se pudo guardar la decisión (' +
+          err.message + '). No lo confirmes otra vez: tocá Actualizar y descartalo ' +
+          'indicando que ya tiene ticket.';
+        return;
+      }
+      msg.textContent = 'No se creó: ' + err.message;
+      bloquear(caso, false);
+    });
+  }
 
   /* ── historial ──────────────────────────────────────────────── */
   function cargarHistorial() {
