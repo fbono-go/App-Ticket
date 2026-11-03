@@ -1,6 +1,6 @@
 {
-  "_version": 4,
-  "_actualizado": "2026-10-06",
+  "_version": 5,
+  "_actualizado": "2026-11-03",
   "sectores": [
     {
       "sector_id": 1,
@@ -270,6 +270,11 @@
       "id": 59,
       "nombre": "Soledad Del Cerro Hoteleria",
       "tipo": "Oficial"
+    },
+    {
+      "id": 432,
+      "nombre": "Leonardo Becerra ",
+      "tipo": "Oficial"
     }
   ],
   "instituciones": [
@@ -410,6 +415,10 @@
       {
         "v": "18",
         "t": "CONSULTORIOS URQUIZA (ICR - 2240)"
+      },
+      {
+        "v": "62",
+        "t": "OFICINAS (ICR - 2284)"
       }
     ],
     "14": [
