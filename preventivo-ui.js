@@ -1386,11 +1386,17 @@
         <b id="prev-v-${esc(k)}">—</b></div>`;
     }
     if (c.tipo_campo === 'numero') {
+      // type=text + inputmode=decimal: el teclado numérico del celular no trae el "−",
+      // y un type=number descarta el "-" suelto. El botón ± cambia el signo (heladeras, freezers).
       return `<div class="prev-campo">
         <label class="prev-lbl">${esc(c.etiqueta)}${c.unidad ? ` (${esc(c.unidad)})` : ''}</label>
-        <input class="prev-input" type="number" inputmode="decimal" step="0.1"
-               value="${v == null ? '' : esc(v)}"
-               oninput="PREV.setNum('${esc(k)}', this.value)">
+        <div class="prev-num">
+          <input class="prev-input" type="text" inputmode="decimal" autocomplete="off"
+                 value="${v == null ? '' : esc(v)}"
+                 oninput="PREV.setNum('${esc(k)}', this.value)">
+          <button type="button" class="prev-signo" aria-label="Cambiar signo (más o menos)"
+                  onclick="PREV.signo(this, '${esc(k)}')">±</button>
+        </div>
         ${c.ayuda ? `<div class="prev-hint">${esc(c.ayuda)}</div>` : ''}</div>`;
     }
     if (c.tipo_campo === 'si_no') {
@@ -1449,6 +1455,16 @@
     const valor = texto === '' || texto === null ? null : Number(String(texto).replace(',', '.'));
     if (c) escribir(c, Number.isFinite(valor) ? valor : null);
     evaluarEnVivo();
+  }
+
+  /** Botón ±: antepone o quita el "-" del campo vecino y recalcula (no redibuja, el teclado sigue abierto). */
+  function signo(btn, clave) {
+    const inp = btn.parentNode.querySelector('input');
+    if (!inp) return;
+    const t = inp.value.trim();
+    inp.value = t.startsWith('-') ? t.slice(1) : '-' + t;
+    inp.focus();
+    setNum(clave, inp.value);
   }
 
   function renderCampos() {
@@ -2610,6 +2626,10 @@
   .prev-btn.prev-grande{padding:17px;font-size:16px;}
   .prev-btn i{margin-right:6px;}
   .prev-campo{margin-bottom:16px;}
+  .prev-num{display:flex;gap:8px;}
+  .prev-num .prev-input{flex:1;min-width:0;}
+  .prev-signo{flex:0 0 52px;border:1px solid #d7dee7;border-radius:10px;background:#eef3fb;
+    color:#0060D6;font-size:22px;font-weight:700;font-family:inherit;cursor:pointer;}
   .prev-ops{display:flex;gap:8px;flex-wrap:wrap;}
   .prev-sw{display:flex;gap:8px;margin:10px 0 4px;}
   .prev-sw .prev-op{font-weight:700;}
@@ -2941,7 +2961,7 @@
     editar, guardarEdicion, pedirBaja, guardarBaja, mostrarBloqueado,
     filtrarLugar, filtrarEstado, abrirPreventivo, volverHistorial,
     motivoNoCorrectivo: setMotivoNoCorrectivo,
-    altaTipoCambio, altaCompresores, guardarAlta, todoConforme, set, setNum, setTxt,
+    altaTipoCambio, altaCompresores, guardarAlta, todoConforme, set, setNum, setTxt, signo,
     guardarRegistro,
     agregarFotos, sincronizar,
     quitarFoto: (i) => { fotos.splice(i, 1); pintarFotos(); },
