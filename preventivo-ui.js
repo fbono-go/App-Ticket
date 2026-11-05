@@ -919,6 +919,71 @@
     pintarVencimientos();
   }
 
+  /* ---- preguntas propias del tipo ----
+     Se piden una sola vez, al dar de alta (tipo de matafuego, agente, etc.).
+     Las define Franco en Checklists → «Datos del alta»; acá solo se dibujan. */
+  // cada pantalla lleva su propio prefijo: el alta y la corrección conviven en el
+  // DOM y, con el mismo id, getElementById leería los campos de la otra
+  const PREF_ALTA = 'prev-da-';
+  const PREF_EDITAR = 'prev-de-';
+  const idDato = (c, pref) => pref + c.campo_id;
+  const altaDeTipo = (tipoId) => (tipoDe(tipoId) || {}).alta || [];
+
+  /** Dibuja las preguntas; `datos` precarga las respuestas cuando se corrige. */
+  function datosHtml(campos, datos, pref) {
+    datos = datos || {};
+    return (campos || []).map((c) => {
+      const v = datos[c.campo_id];
+      const rotulo = esc(c.etiqueta) + (c.unidad ? ` (${esc(c.unidad)})` : '') + (c.requerido ? ' *' : '');
+      const elegir = (opts) => `<select id="${esc(idDato(c, pref))}" class="prev-input">
+        <option value="">Elegí…</option>${opts}</select>`;
+      let campo;
+      if (c.tipo_campo === 'opciones') {
+        campo = elegir(c.opciones.map((o) =>
+          `<option value="${esc(o.v)}"${String(v) === o.v ? ' selected' : ''}>${esc(o.t)}</option>`).join(''));
+      } else if (c.tipo_campo === 'si_no') {
+        campo = elegir(`<option value="true"${String(v) === 'true' ? ' selected' : ''}>Sí</option>` +
+          `<option value="false"${String(v) === 'false' ? ' selected' : ''}>No</option>`);
+      } else if (c.tipo_campo === 'numero') {
+        campo = `<input id="${esc(idDato(c, pref))}" class="prev-input" type="number" inputmode="decimal"
+                        step="any" value="${v == null ? '' : esc(v)}">`;
+      } else {
+        campo = `<input id="${esc(idDato(c, pref))}" class="prev-input" maxlength="120"
+                        value="${v == null ? '' : esc(v)}">`;
+      }
+      return `<label class="prev-lbl">${rotulo}</label>${campo}` +
+        (c.ayuda ? `<div class="prev-hint">${esc(c.ayuda)}</div>` : '');
+    }).join('');
+  }
+
+  /** Lo escrito en esas preguntas: { datos, faltan }. Un vacío viaja como '' (borra el dato). */
+  function leerDatos(campos, pref) {
+    const datos = {};
+    const faltan = [];
+    for (const c of campos || []) {
+      const el = $(idDato(c, pref));
+      const v = el ? String(el.value).trim() : '';
+      datos[c.campo_id] = v;
+      if (c.requerido && !v) faltan.push(c.etiqueta);
+    }
+    return { datos, faltan };
+  }
+
+  /** Lo cargado en el alta, legible: "Polvo ABC · 5 kg". */
+  function resumenDatos(eq) {
+    const datos = (eq && eq.datos) || {};
+    return altaDeTipo(eq && eq.tipo).map((c) => {
+      const v = datos[c.campo_id];
+      if (v === undefined || v === null || v === '') return '';
+      if (c.tipo_campo === 'si_no') return `${c.etiqueta}: ${String(v) === 'true' ? 'sí' : 'no'}`;
+      if (c.tipo_campo === 'opciones') {
+        const o = c.opciones.find((x) => x.v === String(v));
+        return o ? o.t : String(v);
+      }
+      return c.unidad ? `${v} ${c.unidad}` : String(v);
+    }).filter(Boolean).join(' · ');
+  }
+
   /* ---- alta de equipo ---- */
   function abrirAlta(id) {
     const instId = cfg.institucion || '';
@@ -980,6 +1045,8 @@
       <label class="prev-lbl">Capacidad</label>
       <input id="prev-a-cap-eq" class="prev-input" maxlength="30"
              placeholder="${esc(ejemplosDe(coincide)[1])}">
+
+      ${datosHtml(coincide.alta, null, PREF_ALTA)}
 
       <label class="prev-lbl">Lugar</label>
       <select id="prev-a-lugar" class="prev-input" onchange="PREV.recargarVinculos()">
@@ -1138,9 +1205,15 @@
     const lugarId = $('prev-a-lugar').value;
     const pisoId = $('prev-a-piso').value;
     const ref = $('prev-a-ref');
+    const lectura = leerDatos(altaDeTipo($('prev-a-tipo').value), PREF_ALTA);
+    if (lectura.faltan.length) {
+      aviso('Falta completar: ' + lectura.faltan.slice(0, 3).join(', ') + (lectura.faltan.length > 3 ? '…' : ''));
+      return;
+    }
     const cuerpo = {
       equipo_id: equipoActual.equipo_id,
       tipo: $('prev-a-tipo').value,
+      datos: lectura.datos,
       institucion: nombreInst(instId), institucion_id: Number(instId),
       lugar: nombreLugar(instId, lugarId), lugar_id: Number(lugarId),
       piso: nombrePiso(pisoId), piso_id: Number(pisoId),
@@ -1224,14 +1297,25 @@
     return salida;
   }
 
+  /* Las fotos y las observaciones vienen en todo checklist (bloque común) pero la
+     pantalla las dibuja aparte, al final. Cualquier otra pregunta de texto es una
+     pregunta más (ej: el código del matafuego nuevo). Una pregunta de foto no se
+     dibuja: marca que la foto es obligatoria. */
+  const CAMPO_OBSERVACIONES = 'observaciones';
+  const esPregunta = (c) => c.tipo_campo !== 'foto' && c.campo_id !== CAMPO_OBSERVACIONES;
+  const fotoObligatoria = () => checklistActual.filter((c) => c.tipo_campo === 'foto' && c.requerido);
+
   function renderChecklist() {
     const eq = equipoActual;
     const dias = diasA(eq.proximo_venc);
-    const campos = checklistActual.filter((c) => !['foto', 'texto'].includes(c.tipo_campo));
+    const campos = checklistActual.filter(esPregunta);
+    const fotoReq = fotoObligatoria();
+    const resumen = resumenDatos(eq);
 
     $('prev-check-cuerpo').innerHTML = `
       <div class="prev-ficha">
         <div class="prev-ficha-id">${esc(eq.equipo_id)}</div>
+        ${resumen ? `<div class="prev-ficha-sub">${esc(resumen)}</div>` : ''}
         <div class="prev-ficha-sub">${esc([eq.lugar, eq.piso ? 'piso ' + eq.piso : '',
           eq.ubicacion_detalle].filter(Boolean).join(' · '))}</div>
         ${eq._afecta ? `<div class="prev-ficha-sub">De este equipo dependen ${
@@ -1251,7 +1335,9 @@
 
       <div id="prev-campos">${campos.map(campoHtml).join('')}</div>
 
-      <label class="prev-lbl">Fotos</label>
+      <label class="prev-lbl">Fotos${fotoReq.length ? ' *' : ''}</label>
+      ${fotoReq.length ? `<div class="prev-hint">Obligatoria: ${
+        esc(fotoReq.map((c) => c.etiqueta).join(' · '))}</div>` : ''}
       <div id="prev-fotos" class="prev-fotos"></div>
 
       <label class="prev-lbl">Observaciones</label>
@@ -1325,7 +1411,21 @@
                    onclick="PREV.set('${esc(k)}', '${esc(o.v)}')">${esc(o.t)}</button>`).join('')}
         </div></div>`;
     }
+    if (c.tipo_campo === 'texto') {
+      return `<div class="prev-campo">
+        <label class="prev-lbl">${esc(c.etiqueta)}${c.requerido ? ' *' : ''}</label>
+        <input class="prev-input" maxlength="120" autocomplete="off"
+               value="${v == null ? '' : esc(v)}"
+               oninput="PREV.setTxt('${esc(k)}', this.value)">
+        ${c.ayuda ? `<div class="prev-hint">${esc(c.ayuda)}</div>` : ''}</div>`;
+    }
     return '';
+  }
+
+  /** Texto: guarda lo escrito sin volver a dibujar, o el teclado se cierra en cada letra. */
+  function setTxt(clave, texto) {
+    const c = checklistActual.find((x) => claveDe(x) === clave);
+    if (c) escribir(c, texto);
   }
 
   function set(clave, valor) {
@@ -1352,7 +1452,7 @@
   }
 
   function renderCampos() {
-    const campos = checklistActual.filter((c) => !['foto', 'texto'].includes(c.tipo_campo));
+    const campos = checklistActual.filter(esPregunta);
     const cont = $('prev-campos');
     if (cont) cont.innerHTML = campos.map(campoHtml).join('');
   }
@@ -1523,7 +1623,12 @@
   async function guardarRegistro() {
     const faltan = checklistActual
       .filter((c) => c.requerido && c.tipo_campo !== 'calculado')
-      .filter((c) => { const v = leer(c); return v === undefined || v === null || v === ''; })
+      .filter((c) => {
+        if (c.tipo_campo === 'foto') return fotos.length === 0;
+        if (c.campo_id === CAMPO_OBSERVACIONES) return !(($('prev-obs') || {}).value || '').trim();
+        const v = leer(c);
+        return v === undefined || v === null || (typeof v === 'string' && !v.trim());
+      })
       .map((c) => c.etiqueta);
     if (faltan.length) {
       aviso('Falta responder: ' + faltan.slice(0, 3).join(', ') + (faltan.length > 3 ? '…' : ''));
@@ -1639,7 +1744,7 @@
     $('prev-quehago-cuerpo').innerHTML = `
       <div class="prev-ficha">
         <div class="prev-ficha-id">${esc(eq.equipo_id)}</div>
-        <div class="prev-ficha-sub">${esc([eq.marca, eq.capacidad].filter(Boolean).join(' · ')
+        <div class="prev-ficha-sub">${esc([eq.marca, eq.capacidad, resumenDatos(eq)].filter(Boolean).join(' · ')
           || eq.tipo)}</div>
         <div class="prev-ficha-sub">${esc([eq.lugar, eq.piso ? 'piso ' + eq.piso : '',
           eq.ubicacion_detalle].filter(Boolean).join(' · '))}</div>
@@ -2118,6 +2223,8 @@
       <input id="prev-e-cap" class="prev-input" value="${esc(eq.capacidad || '')}"
              placeholder="${esc(ejemplosDe(tipoDe(eq.tipo) || eq)[1])}">
 
+      ${datosHtml(altaDeTipo(eq.tipo), eq.datos, PREF_EDITAR)}
+
       <label class="prev-lbl">Dónde está exactamente</label>
       <input id="prev-e-det" class="prev-input" value="${esc(eq.ubicacion_detalle || '')}"
              placeholder="Ej: Habitación 312, pared norte">
@@ -2175,6 +2282,21 @@
       campos.equipo_padre = $('prev-e-padre').value || '';
     }
 
+    // Solo viaja lo que el técnico cambió. Un inventario guardado en el celular
+    // desde antes de esta versión no trae los datos del alta: mandar todo como
+    // si estuviera vacío borraría lo que ya está cargado.
+    const preguntas = altaDeTipo(eq.tipo);
+    if (preguntas.length) {
+      const antes = eq.datos || {};
+      const ahora = leerDatos(preguntas, PREF_EDITAR).datos;
+      const cambiados = {};
+      for (const c of preguntas) {
+        const previo = antes[c.campo_id] == null ? '' : String(antes[c.campo_id]);
+        if (ahora[c.campo_id] !== previo) cambiados[c.campo_id] = ahora[c.campo_id];
+      }
+      if (Object.keys(cambiados).length) campos.datos = cambiados;
+    }
+
     const motivo = ($('prev-e-motivo').value || '').trim();
 
     try {
@@ -2217,7 +2339,7 @@
       c.innerHTML = `
         <div class="prev-ficha">
           <div class="prev-ficha-id">${esc(eq.equipo_id)}</div>
-          <div class="prev-ficha-sub">${esc([eq.marca, eq.capacidad].filter(Boolean).join(' · ')
+          <div class="prev-ficha-sub">${esc([eq.marca, eq.capacidad, resumenDatos(eq)].filter(Boolean).join(' · ')
             || eq.tipo)}</div>
           <div class="prev-ficha-sub">${esc([eq.lugar, eq.piso ? 'piso ' + eq.piso : '',
             eq.ubicacion_detalle].filter(Boolean).join(' · '))}</div>
@@ -2819,7 +2941,7 @@
     editar, guardarEdicion, pedirBaja, guardarBaja, mostrarBloqueado,
     filtrarLugar, filtrarEstado, abrirPreventivo, volverHistorial,
     motivoNoCorrectivo: setMotivoNoCorrectivo,
-    altaTipoCambio, altaCompresores, guardarAlta, todoConforme, set, setNum,
+    altaTipoCambio, altaCompresores, guardarAlta, todoConforme, set, setNum, setTxt,
     guardarRegistro,
     agregarFotos, sincronizar,
     quitarFoto: (i) => { fotos.splice(i, 1); pintarFotos(); },
