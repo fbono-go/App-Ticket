@@ -247,8 +247,33 @@
       "tipo": "Proveedor"
     },
     {
+      "id": 322,
+      "nombre": "Gamma Ascensores",
+      "tipo": "Proveedor"
+    },
+    {
+      "id": 429,
+      "nombre": "AERCOM",
+      "tipo": "Proveedor"
+    },
+    {
+      "id": 430,
+      "nombre": "GRIDE ELECTRONICA",
+      "tipo": "Proveedor"
+    },
+    {
+      "id": 294,
+      "nombre": "Gustavo Rodríguez",
+      "tipo": "Proveedor"
+    },
+    {
       "id": 59,
       "nombre": "Soledad Del Cerro Hoteleria",
+      "tipo": "Oficial"
+    },
+    {
+      "id": 432,
+      "nombre": "Leonardo Becerra",
       "tipo": "Oficial"
     }
   ],
