@@ -259,7 +259,9 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
   /* ════════════════ estado ════════════════ */
   var CAT = null;           // { tipos, campos, refs }
   var CATEG = [], SUBCAT = {};
-  var S = { vista: 'inicio', tipo: null, campo: null, F: null, base: '', ocupado: false, prueba: { v: '', ref: '' } };
+  var S = { vista: 'inicio', tipo: null, campo: null, F: null, base: '', ocupado: false, prueba: { v: '', ref: '' }, modo: 'preguntas' };
+  // "Datos del alta": lo que se pregunta una sola vez, al dar de alta un equipo del tipo
+  var A = { campo: null, F: null, base: '', ocupado: false };
 
   var TIPOS_RESP = [['si_no', 'Sí / No'], ['opciones', 'Opciones'], ['numero', 'Número'], ['texto', 'Texto'], ['foto', 'Foto']];
   var NOMBRE_RESP = { si_no: 'Sí / No', opciones: 'Opciones', numero: 'Número', texto: 'Texto', foto: 'Foto', calculado: 'Calculado' };
@@ -287,8 +289,10 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
   function nombreTipo(id) { var t = tipoDe(id); return t ? (id === 'base_general' ? 'Bloque común' : t.nombre.replace(/^FUNCIÓN · /, '')) : id; }
   // una pregunta nueva cuenta como cambio recién cuando tiene algo escrito
   var hayCambios = function () {
-    if (!S.F) return false;
-    return S.F.campo_id ? JSON.stringify(S.F) !== S.base : S.F.etiqueta.trim() !== '';
+    var alta = S.modo === 'alta';
+    var F = alta ? A.F : S.F;
+    if (!F) return false;
+    return F.campo_id ? JSON.stringify(F) !== (alta ? A.base : S.base) : F.etiqueta.trim() !== '';
   };
 
   function seguirSiHayCambios() {
@@ -421,7 +425,8 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
   function abrirTipo(id, campoId) {
     S.vista = 'tipo'; S.tipo = id; S.F = null; S.base = '';
     S.campo = campoId || null;
-    if (campoId) prepararForm(campoId);
+    A.campo = null; A.F = null; A.base = '';
+    if (campoId) { S.modo = 'preguntas'; prepararForm(campoId); }
     pintarLado();
     pintar();
   }
@@ -450,10 +455,31 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
         (t.categoria ? '<span class="chip">correctivo → ' + esc(t.categoria + (t.subcategoria ? ' › ' + t.subcategoria : '')) + '</span>' : '') +
         '<button type="button" class="b chico" id="editarTipo">Editar datos del tipo</button></div></div>';
     }
-    $('principal').innerHTML = cab + '<div class="dos"><section class="caja" id="lista"></section><section class="caja" id="panel"></section></div>';
+    $('principal').innerHTML = cab + (t.bloque ? '' : pestanas()) +
+      '<div class="dos"><section class="caja" id="lista"></section><section class="caja" id="panel"></section></div>';
     if ($('editarTipo')) $('editarTipo').onclick = function () { if (seguirSiHayCambios()) abrirTipoForm(t.tipo_id); };
+    enlazarPestanas();
+    if (S.modo === 'alta' && !t.bloque) return pintarAlta();
     pintarLista();
     pintarPanel();
+  }
+
+  /** Un tipo tiene dos cosas que configurar: el checklist de cada visita y los datos del alta. */
+  function pestanas() {
+    return '<div class="pills" style="margin:14px 0">' + [['preguntas', 'Preguntas del preventivo'], ['alta', 'Datos del alta']].map(function (x) {
+      return '<button type="button" class="pill' + (S.modo === x[0] ? ' on' : '') + '" data-modo="' + x[0] + '" aria-pressed="' + (S.modo === x[0]) + '">' + x[1] + '</button>';
+    }).join('') + '</div>';
+  }
+  function enlazarPestanas() {
+    Array.prototype.forEach.call($('principal').querySelectorAll('[data-modo]'), function (b) {
+      b.onclick = function () {
+        var m = b.getAttribute('data-modo');
+        if (m === S.modo || !seguirSiHayCambios()) return;
+        S.modo = m; S.campo = null; S.F = null; S.base = '';
+        A.campo = null; A.F = null; A.base = '';
+        pintar();
+      };
+    });
   }
 
   function pintarLista() {
@@ -812,6 +838,253 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
     }).finally(function () {
       S.ocupado = false;
       pintarLado(); pintarLista(); pintarPanel();
+    });
+  }
+
+  /* ════════════════ datos del alta de un tipo ════════════════
+     Lo que la app le pregunta al técnico UNA vez, cuando da de alta un equipo de
+     este tipo (qué clase de matafuego es, su agente, etc.). Las respuestas quedan
+     en el equipo y se pueden corregir después. Además de marca y capacidad, que se
+     piden siempre. Las preguntas del preventivo son otra cosa: se responden en
+     cada visita. */
+  var TIPOS_ALTA = [['texto', 'Texto'], ['numero', 'Número'], ['opciones', 'Opciones'], ['si_no', 'Sí / No']];
+
+  function altaPropias(activas) {
+    return (CAT.alta || []).filter(function (c) { return c.tipo_id === S.tipo && c.activo === activas; }).sort(porOrden);
+  }
+
+  function prepararAlta(campoId) {
+    if (!campoId) {
+      A.F = { campo_id: '', etiqueta: '', tipo_campo: 'texto', unidad: '', requerido: true, ayuda: '', min: '', max: '', opciones: [] };
+      A.base = '';
+      return;
+    }
+    var c = (CAT.alta || []).find(function (x) { return x.tipo_id === S.tipo && x.campo_id === campoId; });
+    if (!c) { A.F = null; A.base = ''; return; }
+    A.F = {
+      campo_id: c.campo_id, etiqueta: c.etiqueta, tipo_campo: c.tipo_campo, unidad: c.unidad || '', requerido: !!c.requerido,
+      ayuda: c.ayuda || '', min: c.min == null ? '' : String(c.min), max: c.max == null ? '' : String(c.max),
+      opciones: (c.opciones || []).map(function (o) { return { v: o.v, t: o.t }; }),
+    };
+    A.base = JSON.stringify(A.F);
+  }
+
+  /** Qué le falta a este dato para poder guardarse; '' si está bien. */
+  function errorAlta(F) {
+    if (!F.etiqueta.trim()) return 'Falta escribir cómo se llama el dato.';
+    if (F.tipo_campo === 'opciones') {
+      var ops = F.opciones.filter(function (o) { return o.t.trim(); });
+      if (ops.length < 2) return 'Un dato con opciones necesita al menos dos.';
+      var vistos = {}, repetida = false;
+      ops.forEach(function (o) { var k = o.t.trim().toLowerCase(); if (vistos[k]) repetida = true; vistos[k] = 1; });
+      if (repetida) return 'Hay una opción repetida.';
+    }
+    if (F.tipo_campo === 'numero') {
+      var a = numero(F.min), b = numero(F.max);
+      if (a !== null && b !== null && a >= b) return 'El mínimo tiene que ser menor que el máximo.';
+    }
+    return '';
+  }
+
+  function pintarAlta() {
+    var mias = altaPropias(true), ret = altaPropias(false);
+    var h = '<div class="caja-cab"><h3>Datos que se piden en el alta (' + mias.length + ')</h3>' +
+      '<button type="button" class="b pri chico" id="aNueva"' + (CAT.alta_lista ? '' : ' disabled') + '>+ Nuevo</button></div>';
+    if (!CAT.alta_lista) {
+      h += '<div class="aviso amb">Falta preparar la planilla. Agregá la columna <code class="num">momento</code> en la hoja ' +
+        '<b>tipos_campos</b> y la columna <code class="num">datos_json</code> en la hoja <b>equipos</b> ' +
+        '(en la fila de encabezados) y recargá esta página.</div>';
+    }
+    h += '<div class="lista">' + (mias.length ? mias.map(function (c, i) {
+      return '<div class="pr' + (A.campo === c.campo_id ? ' on' : '') + '">' +
+        '<button type="button" class="sel" data-acampo="' + esc(c.campo_id) + '"><span class="n">' + (i + 1) + '</span><span>' +
+        '<span class="et">' + esc(c.etiqueta) + '</span>' +
+        '<span class="sb">' + esc(NOMBRE_RESP[c.tipo_campo] || c.tipo_campo) + ' · ' + (c.requerido ? 'obligatorio' : 'opcional') + '</span></span></button>' +
+        '<span class="flechas"><button type="button" aria-label="Subir" data-amover="' + i + '" data-d="-1"' + (i === 0 || A.ocupado ? ' disabled' : '') + '>▲</button>' +
+        '<button type="button" aria-label="Bajar" data-amover="' + i + '" data-d="1"' + (i === mias.length - 1 || A.ocupado ? ' disabled' : '') + '>▼</button></span></div>';
+    }).join('') : '<div class="nota">Este tipo todavía no pide datos propios en el alta.</div>') + '</div>';
+    if (ret.length) {
+      h += '<details class="retiradas"><summary>Retirados (' + ret.length + ')</summary>' + ret.map(function (c) {
+        return '<div class="ret"><span>' + esc(c.etiqueta) + '</span><button type="button" class="b chico" data-areactivar="' + esc(c.campo_id) + '">Volver a activar</button></div>';
+      }).join('') + '</details>';
+    }
+    $('lista').innerHTML = h;
+
+    $('aNueva').onclick = function () {
+      if (!seguirSiHayCambios()) return;
+      A.campo = '__nueva'; prepararAlta(null); pintarAlta();
+      if ($('a-etiqueta')) $('a-etiqueta').focus();
+    };
+    Array.prototype.forEach.call($('lista').querySelectorAll('[data-acampo]'), function (b) {
+      b.onclick = function () {
+        var id = b.getAttribute('data-acampo');
+        if (id === A.campo || !seguirSiHayCambios()) return;
+        A.campo = id; prepararAlta(id); pintarAlta();
+      };
+    });
+    Array.prototype.forEach.call($('lista').querySelectorAll('[data-amover]'), function (b) {
+      b.onclick = function () { moverAlta(Number(b.getAttribute('data-amover')), Number(b.getAttribute('data-d'))); };
+    });
+    Array.prototype.forEach.call($('lista').querySelectorAll('[data-areactivar]'), function (b) {
+      b.onclick = function () { activarAlta(b.getAttribute('data-areactivar'), true); };
+    });
+    pintarPanelAlta();
+  }
+
+  function moverAlta(k, d) {
+    if (!seguirSiHayCambios()) return;
+    var ids = altaPropias(true).map(function (c) { return c.campo_id; });
+    var j = k + d;
+    if (j < 0 || j >= ids.length) return;
+    var x = ids[k]; ids[k] = ids[j]; ids[j] = x;
+    A.ocupado = true; pintarAlta();
+    api('/admin/orden', { tipo_id: S.tipo, momento: 'alta', campos: ids })
+      .then(function (r) { CAT = r; A.F = null; A.base = ''; })
+      .catch(function (e) { toast(e.message, true); })
+      .finally(function () { A.ocupado = false; pintar(); });
+  }
+
+  function activarAlta(campoId, activo) {
+    if (!activo && !confirm('¿Retirar este dato? Deja de pedirse en los equipos nuevos. Los equipos ya cargados conservan lo que tienen y se puede volver a activar.')) return;
+    A.ocupado = true;
+    api('/admin/campo/activo', { tipo_id: S.tipo, campo_id: campoId, activo: activo })
+      .then(function (r) {
+        CAT = r;
+        toast(activo ? 'Dato activado de nuevo' : 'Dato retirado');
+        if (!activo) { A.campo = null; A.F = null; A.base = ''; }
+      })
+      .catch(function (e) { toast(e.message, true); })
+      .finally(function () { A.ocupado = false; pintar(); });
+  }
+
+  function pintarPanelAlta() {
+    var p = $('panel');
+    if (!p) return;
+    if (!A.campo) {
+      p.innerHTML = '<div class="vacio"><h2>Elegí un dato</h2><p>Tocá uno de la lista para editarlo, o agregá uno nuevo.</p></div>';
+      return;
+    }
+    if (!A.F) prepararAlta(A.campo === '__nueva' ? null : A.campo);
+    var F = A.F;
+    if (!F) { p.innerHTML = ''; return; }
+    var t = tipoDe(S.tipo);
+    var nueva = !F.campo_id;
+    var bloqueado = !nueva && t.equipos_afectados > 0;
+
+    var h = '<div class="editor" style="grid-template-columns:minmax(0,1fr)"><div class="form">';
+    h += '<div class="campo"><label for="a-etiqueta">Cómo se llama el dato, como lo lee el técnico</label>' +
+      '<input type="text" id="a-etiqueta" maxlength="120" value="' + esc(F.etiqueta) + '" style="font-size:18px;font-weight:600" placeholder="Ej: Tipo de matafuego">' +
+      '<div class="nota">' + (nueva ? 'El nombre interno se genera solo al guardar y no cambia nunca.'
+        : 'Nombre interno <code class="num">' + esc(F.campo_id) + '</code> · no cambia nunca') + '</div></div>';
+
+    h += '<div class="campo"><span class="lbl">Cómo se responde</span><div class="pills">' + TIPOS_ALTA.map(function (x) {
+      return '<button type="button" class="pill' + (F.tipo_campo === x[0] ? ' on' : '') + '" data-atc="' + x[0] + '"' +
+        (bloqueado && F.tipo_campo !== x[0] ? ' disabled' : '') + ' aria-pressed="' + (F.tipo_campo === x[0]) + '">' + x[1] + '</button>';
+    }).join('') + '</div>' +
+      (bloqueado ? '<div class="nota">Ya hay equipos de este tipo: la forma de responder no se puede cambiar. Si hace falta, retirá el dato y creá otro.</div>' : '') +
+      '</div>';
+
+    h += '<div class="fila">';
+    if (F.tipo_campo === 'numero') {
+      h += '<div class="campo"><label for="a-unidad">Unidad</label><input type="text" id="a-unidad" class="num w-chico" maxlength="12" value="' + esc(F.unidad) + '" placeholder="kg, l…"></div>';
+    }
+    h += '<button type="button" class="switch" id="a-req" aria-pressed="' + F.requerido + '"><span class="pista"></span>Obligatorio</button></div>';
+
+    if (F.tipo_campo === 'opciones') {
+      h += '<div class="campo"><span class="lbl">Opciones</span>' + F.opciones.map(function (o, j) {
+        return '<div class="op"><input type="text" maxlength="60" data-aopt="' + j + '" aria-label="Opción ' + (j + 1) + '" value="' + esc(o.t) + '">' +
+          // una opción ya guardada no se quita si hay equipos: quedarían con un valor huérfano
+          (bloqueado && o.v ? '' : '<button type="button" class="x" data-aquitar="' + j + '" aria-label="Quitar opción">×</button>') + '</div>';
+      }).join('') + '<div><button type="button" class="b chico" id="a-addopt">+ Agregar opción</button></div></div>';
+    }
+    if (F.tipo_campo === 'numero') {
+      h += '<div class="campo"><span class="lbl">Límites al tipear <span style="font-weight:400;color:var(--tinta3)">(opcional)</span></span>' +
+        '<div class="valores"><span>No aceptar menos de</span><input type="text" inputmode="decimal" class="num w-chico" id="a-min" aria-label="Mínimo" value="' + esc(F.min) + '">' +
+        '<span>ni más de</span><input type="text" inputmode="decimal" class="num w-chico" id="a-max" aria-label="Máximo" value="' + esc(F.max) + '"></div></div>';
+    }
+    h += '<div class="campo"><label for="a-ayuda">Ayuda para el técnico <span style="font-weight:400;color:var(--tinta3)">(opcional)</span></label>' +
+      '<textarea id="a-ayuda" rows="2" maxlength="300" placeholder="Dónde se lee este dato">' + esc(F.ayuda) + '</textarea></div>';
+    h += '<div class="aviso amb oculto" id="a-error" style="margin:0"></div>';
+    h += '<div class="acciones"><button type="button" class="b pri" id="a-guardar">' + (nueva ? 'Crear dato' : 'Guardar cambios') + '</button>' +
+      '<button type="button" class="b" id="a-descartar">Descartar cambios</button>' +
+      (nueva ? '' : '<button type="button" class="b peligro der" id="a-retirar">Retirar dato</button>') + '</div>';
+    h += '</div></div>';
+    p.innerHTML = h;
+    enlazarPanelAlta();
+    estadoGuardarAlta();
+  }
+
+  /** Habilita Guardar solo si hay algo para guardar y está completo; sin redibujar (no se pierde el foco). */
+  function estadoGuardarAlta() {
+    var F = A.F, g = $('a-guardar');
+    if (!F || !g) return;
+    var err = errorAlta(F);
+    var e = $('a-error');
+    // el error solo se muestra cuando ya hay algo escrito: un formulario recién abierto no reta
+    var mostrar = !!err && (F.campo_id ? hayCambios() : F.etiqueta.trim() !== '');
+    if (e) { e.textContent = err; e.className = 'aviso amb' + (mostrar ? '' : ' oculto'); }
+    g.disabled = !!err || A.ocupado || !hayCambios();
+  }
+
+  function enlazarPanelAlta() {
+    var F = A.F;
+    function en(id, ev, fn) { var el = $(id); if (el) el.addEventListener(ev, fn); }
+    en('a-etiqueta', 'input', function (e) { F.etiqueta = e.target.value; estadoGuardarAlta(); });
+    en('a-unidad', 'input', function (e) { F.unidad = e.target.value; estadoGuardarAlta(); });
+    en('a-min', 'input', function (e) { F.min = e.target.value; estadoGuardarAlta(); });
+    en('a-max', 'input', function (e) { F.max = e.target.value; estadoGuardarAlta(); });
+    en('a-ayuda', 'input', function (e) { F.ayuda = e.target.value; estadoGuardarAlta(); });
+    en('a-req', 'click', function () { F.requerido = !F.requerido; this.setAttribute('aria-pressed', F.requerido); estadoGuardarAlta(); });
+    en('a-addopt', 'click', function () { F.opciones.push({ v: '', t: '' }); pintarPanelAlta(); var q = $('panel').querySelectorAll('[data-aopt]'); q[q.length - 1].focus(); });
+    en('a-guardar', 'click', guardarDatoAlta);
+    en('a-descartar', 'click', function () {
+      if (A.campo === '__nueva') { A.campo = null; A.F = null; A.base = ''; pintarAlta(); return; }
+      prepararAlta(A.campo); pintarPanelAlta();
+    });
+    en('a-retirar', 'click', function () { activarAlta(F.campo_id, false); });
+
+    var P = $('panel');
+    Array.prototype.forEach.call(P.querySelectorAll('[data-atc]'), function (b) {
+      b.onclick = function () {
+        var tc = b.getAttribute('data-atc');
+        if (tc === F.tipo_campo) return;
+        F.tipo_campo = tc;
+        if (tc !== 'numero') { F.unidad = ''; F.min = ''; F.max = ''; }
+        if (tc === 'opciones' && F.opciones.length < 2) F.opciones = [{ v: '', t: '' }, { v: '', t: '' }];
+        pintarPanelAlta();
+      };
+    });
+    Array.prototype.forEach.call(P.querySelectorAll('[data-aopt]'), function (inp) {
+      inp.addEventListener('input', function () { F.opciones[Number(inp.getAttribute('data-aopt'))].t = inp.value; estadoGuardarAlta(); });
+    });
+    Array.prototype.forEach.call(P.querySelectorAll('[data-aquitar]'), function (b) {
+      b.onclick = function () { F.opciones.splice(Number(b.getAttribute('data-aquitar')), 1); pintarPanelAlta(); };
+    });
+  }
+
+  function guardarDatoAlta() {
+    var F = A.F;
+    if (!F || A.ocupado || errorAlta(F)) return;
+    var cuerpo = {
+      tipo_id: S.tipo, momento: 'alta', etiqueta: F.etiqueta.trim(), tipo_campo: F.tipo_campo, unidad: F.unidad.trim(),
+      requerido: F.requerido, ayuda: F.ayuda.trim(), min: F.min, max: F.max,
+      opciones: F.opciones.filter(function (o) { return o.t.trim(); }).map(function (o) { return { v: o.v, t: o.t.trim() }; }),
+    };
+    if (F.campo_id) cuerpo.campo_id = F.campo_id;
+    A.ocupado = true;
+    $('a-guardar').disabled = true;
+    $('a-guardar').textContent = 'Guardando…';
+    api('/admin/campo', cuerpo).then(function (r) {
+      CAT = r;
+      A.campo = r.campo_id;
+      A.F = null;
+      prepararAlta(r.campo_id);
+      toast(F.campo_id ? 'Cambios guardados' : 'Dato creado');
+    }).catch(function (e) {
+      toast(e.message, true);
+    }).finally(function () {
+      A.ocupado = false;
+      pintar();
     });
   }
 
