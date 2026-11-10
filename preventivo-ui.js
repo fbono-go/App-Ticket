@@ -98,6 +98,8 @@
   let COLA = [];              // registros pendientes de subir
   let equipoActual = null;
   let checklistActual = [];
+  let AUD = null;             // auditoría en curso (solo oficiales): { id }
+  let AUDS = [];              // auditorías pendientes de la institución activa
   let respuestas = {};
   let fotos = [];
   let enviarCorrectivo = true;    // la app recomienda; el técnico puede desactivarlo
@@ -345,10 +347,13 @@
       for (const reg of COLA.slice()) {
         try {
           if (reg._tipo === 'intervencion') await subirIntervencion(reg);
+          else if (reg._tipo === 'auditoria') await subirAuditoria(reg);
           else await subirRegistro(reg);
           await dbDel('cola', reg.uuid);
           subidos++;
         } catch (e) {
+          // una auditoría que ya no está pendiente (otro oficial la hizo) no se reintenta
+          if (reg._tipo === 'auditoria' && e.status === 409) { await dbDel('cola', reg.uuid); continue; }
           fallados++;
           // Se anota siempre el motivo: sin eso, un registro que no sube nunca
           // se queda en la cola sin que nadie sepa por qué.
@@ -623,6 +628,11 @@
       if (modoEscaneo !== 'historial' && esAjeno(eq)) return mostrarAjeno(eq);
       if (modoEscaneo === 'historial') return verHistorial(eq.equipo_id);
       if (modoEscaneo === 'trabajo') return elegirQueHago(eq);
+      if (ROL === 'oficial') {
+        if (!AUDS.length) await cargarAuditorias(cfg.institucion);
+        const pend = AUDS.find((a) => a.equipo_id === eq.equipo_id);
+        if (pend) return abrirAuditoria(pend.auditoria_id);
+      }
       return abrirChecklist(eq);
     }
     if (modoEscaneo !== 'preventivo') {
@@ -692,9 +702,13 @@
       <button class="prev-btn prev-grande" onclick="PREV.escanear()" ${inst ? '' : 'disabled'}>
         <i class="ti ti-qrcode"></i> Escanear equipo
       </button>
+      <div id="prev-auditorias"></div>
       <div id="prev-vence"></div>`}`;
 
-    if (inst && seccion === 'preventivo') renderVencimientos(inst);
+    if (inst && seccion === 'preventivo') {
+      renderAuditorias(inst);
+      renderVencimientos(inst);
+    }
     if (inst && seccion === 'correctivo') renderUltimos(inst);
   }
 
@@ -775,6 +789,80 @@
    * proveedor u oficial. Se puede filtrar por lugar (el técnico va a un
    * edificio) y dentro de cada lugar se agrupa por piso, todo por prioridad.
    */
+  /* ── Auditorías a proveedores ──────────────────────────────────────────
+     Solo las ve el oficial. Le llegan como una tarea más de la pestaña
+     Preventivo: escanea el equipo y responde las preguntas que el servidor le
+     manda (solo las auditables), sin ver lo que respondió el proveedor. El
+     servidor compara después de guardar. */
+  async function cargarAuditorias(instId) {
+    if (ROL !== 'oficial' || !navigator.onLine) return AUDS;
+    try {
+      const r = await api('/auditorias/pendientes?rol=oficial&institucion=' + encodeURIComponent(instId),
+        { timeout: 15000 });
+      AUDS = r.auditorias || [];
+    } catch (e) { /* sin señal o módulo apagado: se sigue con lo que haya */ }
+    return AUDS;
+  }
+
+  async function renderAuditorias(instId) {
+    const c = $('prev-auditorias');
+    if (!c || ROL !== 'oficial') return;
+    await cargarAuditorias(instId);
+    if (!$('prev-auditorias')) return;          // se cambió de pantalla mientras cargaba
+    c.innerHTML = AUDS.length ? `
+      <div class="prev-lugar"><i class="ti ti-clipboard-check"></i>Auditorías a proveedores
+        <span class="prev-lugar-n">${AUDS.length}</span></div>
+      <div class="prev-hint">Verificá en el equipo lo que hizo el proveedor. Medí vos primero:
+        no vas a ver lo que él cargó.</div>
+      ${AUDS.map(tarjetaAud).join('')}` : '';
+  }
+
+  function textoAud(a) {
+    if (a.dias === null || a.dias === undefined) return 'Auditoría';
+    if (a.dias < 0) return 'Vencida hace ' + (-a.dias) + (a.dias === -1 ? ' día' : ' días');
+    return a.dias === 0 ? 'Vence hoy' : 'Vence en ' + a.dias + (a.dias === 1 ? ' día' : ' días');
+  }
+
+  function tarjetaAud(a) {
+    return `
+      <div class="prev-venc aud ${a.dias !== null && a.dias < 0 ? 'rojo' : ''}">
+        <div class="prev-venc-cab">
+          <span class="prev-venc-est">Auditoría · ${esc(textoAud(a))}</span>
+          <span class="prev-venc-id">${esc(a.equipo_id)}</span>
+        </div>
+        <div class="prev-venc-tit">${esc([a.marca, nombreTipo(a.tipo)].filter(Boolean).join(' · ') || a.equipo_id)}</div>
+        <div class="prev-venc-pie">
+          <span class="prev-venc-ubi">${esc([a.lugar, a.piso ? 'piso ' + a.piso : '', a.ubicacion_detalle]
+            .filter(Boolean).join(' · '))}</span>
+          <button class="prev-venc-hist" onclick="PREV.abrirAuditoria('${esc(a.auditoria_id)}')">
+            <i class="ti ti-clipboard-check"></i> Auditar</button>
+        </div>
+      </div>`;
+  }
+
+  /** Abre una auditoría: el equipo y solo las preguntas auditables, nada de lo declarado. */
+  async function abrirAuditoria(id) {
+    if (!navigator.onLine) { aviso('Sin conexión: la auditoría se abre con señal'); return; }
+    try {
+      const r = await api('/auditoria/' + encodeURIComponent(id) + '/detalle?rol=oficial', { timeout: 20000 });
+      equipoActual = r.equipo;
+      if (r.afecta_ambientes) equipoActual._afecta = r.afecta_ambientes;
+      checklistActual = r.checklist || [];
+      if (!checklistActual.length) { aviso('Esta auditoría no tiene preguntas para responder'); return; }
+      AUD = { id: r.auditoria_id };
+      respuestas = {};
+      fotos = [];
+      enviarCorrectivo = false;
+      motivoNoCorrectivo = '';
+      pedirGps();
+      renderChecklist();
+      mostrar('prev-pant-check');
+    } catch (e) {
+      aviso(e.status === 409 ? 'Esa auditoría ya se hizo' : (e.message || 'No se pudo abrir la auditoría'));
+      renderInicio();
+    }
+  }
+
   async function renderVencimientos(instId) {
     const c = $('prev-vence');
     if (!c) return;
@@ -1262,6 +1350,7 @@
   /* ---- checklist ---- */
   function abrirChecklist(eq) {
     equipoActual = eq;
+    AUD = null;
     respuestas = {};
     fotos = [];
     enviarCorrectivo = true;
@@ -1320,22 +1409,26 @@
           eq.ubicacion_detalle].filter(Boolean).join(' · '))}</div>
         ${eq._afecta ? `<div class="prev-ficha-sub">De este equipo dependen ${
           eq._afecta} ambiente${eq._afecta > 1 ? 's' : ''}</div>` : ''}
-        ${eq.ultimo_preventivo
+        ${AUD ? `<div class="prev-ficha-sub"><b>Auditoría a proveedor</b></div>`
+          : eq.ultimo_preventivo
           ? `<div class="prev-ficha-sub">Último: ${esc(eq.ultimo_preventivo)}${
               dias !== null ? ` · ${dias < 0 ? 'vencido hace ' + (-dias) + ' días'
                 : 'vence en ' + dias + ' días'}` : ''}</div>`
           : '<div class="prev-ficha-sub">Sin preventivos previos</div>'}
       </div>
 
+      ${AUD ? `
+      <div class="prev-hint">Respondé mirando el equipo. No hay «todo conforme»: cada
+        respuesta tiene que salir de lo que ves y medís vos.</div>` : `
       <button class="prev-btn prev-sec" onclick="PREV.todoConforme()">
         <i class="ti ti-checks"></i> Todo conforme
       </button>
       <div class="prev-hint">Precarga lo que se responde por sí o no.
-        Las mediciones hay que tomarlas igual.</div>
+        Las mediciones hay que tomarlas igual.</div>`}
 
       <div id="prev-campos">${campos.map(campoHtml).join('')}</div>
 
-      <label class="prev-lbl">Fotos${fotoReq.length ? ' *' : ''}</label>
+      <label class="prev-lbl">Fotos${fotoReq.length ? ' *' : ''}${AUD ? ' (recomendada: una del equipo)' : ''}</label>
       ${fotoReq.length ? `<div class="prev-hint">Obligatoria: ${
         esc(fotoReq.map((c) => c.etiqueta).join(' · '))}</div>` : ''}
       <div id="prev-fotos" class="prev-fotos"></div>
@@ -1346,8 +1439,8 @@
 
       <div id="prev-desvios"></div>
 
-      <button class="prev-btn prev-grande" onclick="PREV.guardarRegistro()">
-        <i class="ti ti-device-floppy"></i> Guardar preventivo
+      <button class="prev-btn prev-grande" onclick="PREV.${AUD ? 'guardarAuditoria' : 'guardarRegistro'}()">
+        <i class="ti ti-device-floppy"></i> Guardar ${AUD ? 'auditoría' : 'preventivo'}
       </button>
       <div class="prev-hint" style="text-align:center">Firma: ${esc(FIRMA())}</div>`;
     pintarFotos();
@@ -1606,7 +1699,7 @@
 
     const cont = $('prev-desvios');
     if (cont) {
-      cont.innerHTML = desvios.length ? `
+      cont.innerHTML = desvios.length && !AUD ? `
         <div class="prev-card prev-warn">
           <b>Se detectaron desvíos</b>
           <p>${desvios.map(esc).join(', ')}.</p>
@@ -1712,6 +1805,99 @@
     } finally {
       $('prev-pant-check').classList.remove('cargando');
     }
+  }
+
+  /**
+   * Guarda una auditoría. A diferencia del preventivo, TODAS las preguntas son
+   * obligatorias: el servidor compara cada una con lo declarado, y una sin
+   * responder no se puede comparar.
+   */
+  async function guardarAuditoria() {
+    if (!AUD) return;
+    const faltan = checklistActual
+      .filter((c) => c.tipo_campo !== 'calculado')
+      .filter((c) => {
+        const v = leer(c);
+        return v === undefined || v === null || (typeof v === 'string' && !v.trim());
+      })
+      .map((c) => c.etiqueta);
+    if (faltan.length) {
+      aviso('Falta responder: ' + faltan.slice(0, 3).join(', ') + (faltan.length > 3 ? '…' : ''));
+      return;
+    }
+
+    const coincide = gpsCoincide();
+    const reg = {
+      _tipo: 'auditoria',
+      uuid: uuid(),
+      auditoria_id: AUD.id,
+      equipo_id: equipoActual.equipo_id,
+      fecha: ahoraLocal(),
+      usuario: FIRMA(),
+      rol: ROL,
+      respuestas: Object.assign({}, respuestas),
+      observaciones: ($('prev-obs') && $('prev-obs').value.trim()) || '',
+      fotos: [],
+      fotos_pendientes: fotos.slice(),
+      institucion_id: equipoActual.institucion_id,
+      gps_lat: gps ? gps.lat : null,
+      gps_lon: gps ? gps.lon : null,
+      gps_ok: coincide === null ? undefined : coincide,
+      origen: navigator.onLine ? 'online' : 'cola',
+    };
+
+    const terminar = () => {
+      AUD = null;
+      AUDS = AUDS.filter((a) => a.auditoria_id !== reg.auditoria_id);
+      inicio();
+    };
+
+    if (!navigator.onLine) {
+      await encolar(reg);
+      vibrar(30);
+      aviso('Sin señal: la auditoría quedó guardada para enviar después');
+      return terminar();
+    }
+
+    try {
+      $('prev-pant-check').classList.add('cargando');
+      const r = await subirAuditoria(reg);
+      vibrar(30);
+      aviso(r.resultado === 'conforme' ? 'Auditoría registrada: conforme'
+        : r.resultado === 'no_conforme' ? 'Auditoría registrada: no conforme. Le llega al referente.'
+        : 'Auditoría registrada con observaciones. Le llega al referente.');
+      terminar();
+    } catch (e) {
+      const permanente = e.status >= 400 && e.status < 500 && e.status !== 429;
+      if (permanente) { mostrarError(e); return; }
+      reg.origen = 'cola';
+      reg._error = e.message || 'sin conexión';
+      await encolar(reg);
+      aviso('Sin llegar al servidor: quedó en la cola. ' + (e.message || ''));
+      terminar();
+    } finally {
+      $('prev-pant-check').classList.remove('cargando');
+    }
+  }
+
+  /**
+   * Las fotos suben ANTES que el resultado: una vez guardada la auditoría el
+   * servidor no admite cambios (el uuid la hace idempotente), así que no hay
+   * un segundo envío que las adjunte. Una foto que falla no frena la auditoría.
+   */
+  async function subirAuditoria(reg) {
+    const urls = (reg.fotos || []).slice();
+    for (const f of (reg.fotos_pendientes || [])) {
+      try {
+        const rf = await api('/foto', { method: 'POST',
+          body: { base64: f.base64, nombre: f.nombre, mime: 'image/jpeg', institucion: reg.institucion_id } });
+        urls.push(rf.url);
+      } catch (e) { /* se guarda igual, sin esa foto */ }
+    }
+    const cuerpo = Object.assign({}, reg, { fotos: urls });
+    ['fotos_pendientes', '_error', '_intentos', '_fotosError', '_tipo'].forEach((k) => { delete cuerpo[k]; });
+    return api('/auditoria/' + encodeURIComponent(reg.auditoria_id) + '/resultado',
+      { method: 'POST', body: cuerpo });
   }
 
   /** Muestra el motivo real del rechazo, sin encolar. */
@@ -2515,7 +2701,7 @@
         <div id="prev-diag"></div>
       </div>` + COLA.map((r) => `
       <div class="prev-card">
-        <b>${esc(r.equipo_id)}</b>
+        <b>${esc(r.equipo_id)}${r._tipo === 'auditoria' ? ' · auditoría' : ''}</b>
         <p>${esc(String(r.fecha).slice(0, 16).replace('T', ' '))}${
           r.fotos_pendientes && r.fotos_pendientes.length
             ? ` · ${r.fotos_pendientes.length} foto(s)` : ''}</p>
@@ -2674,6 +2860,8 @@
     border-radius:10px;padding:10px 13px;margin-bottom:8px;}
   .prev-venc.rojo{border-left-color:#c0392b;}
   .prev-venc.amarillo{border-left-color:#E6B400;} .prev-venc.verde{border-left-color:#2E9E57;}
+  .prev-venc.aud{border-left-color:#6B4FBB;} .prev-venc.aud .prev-venc-est{color:#6B4FBB;}
+  .prev-venc.aud.rojo{border-left-color:#c0392b;} .prev-venc.aud.rojo .prev-venc-est{color:#c0392b;}
   .prev-venc-cab{display:flex;justify-content:space-between;align-items:center;gap:8px;}
   .prev-venc-est{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#5a6472;}
   .prev-venc.rojo .prev-venc-est{color:#c0392b;}
@@ -2949,6 +3137,7 @@
   }
 
   function inicio() {
+    AUD = null;
     renderInicio();
   }
 
@@ -2962,7 +3151,7 @@
     filtrarLugar, filtrarEstado, abrirPreventivo, volverHistorial,
     motivoNoCorrectivo: setMotivoNoCorrectivo,
     altaTipoCambio, altaCompresores, guardarAlta, todoConforme, set, setNum, setTxt, signo,
-    guardarRegistro,
+    guardarRegistro, guardarAuditoria, abrirAuditoria,
     agregarFotos, sincronizar,
     quitarFoto: (i) => { fotos.splice(i, 1); pintarFotos(); },
     // solo para pruebas automatizadas: agrega una foto sin pasar por la cámara

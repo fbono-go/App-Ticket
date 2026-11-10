@@ -108,6 +108,29 @@ td.num{font-family:var(--mono);text-align:right;}
   background:var(--chapa);border:1px solid var(--linea);border-radius:10px;}
 .emp-accion label,.emp-filtros label{color:var(--tinta3);}
 .emp-tabla td,.emp-tabla th{padding:7px 10px;}
+.aud-sem{display:flex;gap:12px;flex-wrap:wrap;margin:0 0 20px;}
+.aud-sem > div{background:var(--chapa);border:1px solid var(--linea);border-radius:10px;padding:12px 16px;min-width:150px;}
+.aud-sem b{display:block;font-size:24px;font-family:var(--mono);}
+.aud-sem span{font-size:12.5px;color:var(--tinta3);}
+.nota{display:inline-block;min-width:44px;text-align:center;border-radius:8px;padding:3px 9px;font-family:var(--mono);
+  font-weight:800;font-size:15px;background:#EEF1F5;color:var(--tinta2);}
+.nota.verde{background:var(--verde-pal);color:var(--verde);} .nota.amarillo{background:var(--ambar-pal);color:var(--ambar-txt);}
+.nota.rojo{background:var(--rojo-pal);color:var(--rojo);}
+.aud-conf{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;padding:14px 16px;background:var(--chapa);
+  border:1px solid var(--linea);border-radius:10px;margin:8px 0 22px;}
+.aud-conf label{display:block;font-size:12.5px;color:var(--tinta3);margin-bottom:4px;}
+.aud-conf input,.aud-rev input{padding:8px 10px;border:1px solid var(--linea);border-radius:7px;font-size:14px;
+  font-family:inherit;background:#fff;color:var(--tinta);}
+.aud-conf input{width:110px;}
+.aud-rev{background:var(--chapa);border:1px solid var(--linea);border-left:4px solid var(--ambar);border-radius:0 10px 10px 0;
+  padding:14px 16px;margin-bottom:12px;}
+.aud-rev.rojo{border-left-color:var(--rojo);}
+.aud-rev .dif{font-size:13.5px;margin:3px 0;}
+.aud-rev .acc{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px;}
+.aud-rev .acc input{flex:1;min-width:200px;}
+.chip-res{display:inline-block;font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;border-radius:6px;padding:2px 8px;}
+.chip-res.conforme{background:var(--verde-pal);color:var(--verde);} .chip-res.observacion{background:var(--ambar-pal);color:var(--ambar-txt);}
+.chip-res.no_conforme{background:var(--rojo-pal);color:var(--rojo);}
 .emp-tabla input{width:17px;height:17px;}
 .caso-lugar{margin:6px 0 0;font-size:16px;font-weight:700;}
 .caso-ubi{font-size:13.5px;color:var(--tinta2);margin:4px 0 0;}
@@ -260,6 +283,7 @@ td.num{font-family:var(--mono);text-align:right;}
       <button class="pest" data-v="v-historial" type="button">Historial</button>
       <button class="pest" data-v="v-equipo" type="button">Buscar equipo</button>
       <button class="pest" data-v="v-empresas" type="button">Empresas</button>
+      <button class="pest" data-v="v-auditoria" type="button">Auditoría <span class="n" id="n-aud" style="display:none">0</span></button>
     </div>
   </div>
 </div>
@@ -358,6 +382,15 @@ td.num{font-family:var(--mono);text-align:right;}
     </div>
     <div id="emp-msg" role="status"></div>
     <div id="emp-lista"><div class="vacio">Elegí una institución arriba.</div></div>
+  </section>
+
+  <!-- ── auditoría de preventivos ── -->
+  <section class="vista" id="v-auditoria">
+    <h2>Auditoría de preventivos</h2>
+    <p class="sub">Los oficiales verifican en el equipo una muestra de lo que hicieron los proveedores,
+      sin ver lo que ellos cargaron. Qué se audita se define en Checklists, por tipo de equipo y por
+      pregunta. Acá se ve cómo viene cada proveedor y cuántas auditorías llegan por semana.</p>
+    <div id="aud-cuerpo"><div class="cargando">Cargando…</div></div>
   </section>
 
   <div class="pie" id="pie"></div>
@@ -1288,6 +1321,155 @@ td.num{font-family:var(--mono);text-align:right;}
   });
   $('emp-aplicar').addEventListener('click', aplicarEmpresa);
 
+  /* ── auditoría de preventivos ───────────────────────────────── */
+  var AUD = { datos: null, turno: 0 };
+  var NOMBRE_RES = { conforme: 'Conforme', observacion: 'Observación', no_conforme: 'No conforme' };
+  var NOMBRE_NIVEL = { verde: 'Confiable', amarillo: 'A seguir', rojo: 'Preocupa', sin_datos: 'Pocos datos' };
+  var mayus = function (t) { return String(t || '').replace(/(^|\s)(\S)/g, function (m, a, b) { return a + b.toUpperCase(); }); };
+
+  function cargarAuditoria() {
+    var mio = ++AUD.turno;
+    $('aud-cuerpo').innerHTML = '<div class="cargando">Consultando…</div>';
+    pedir('/auditoria/resumen').then(function (r) {
+      if (mio !== AUD.turno) return;
+      AUD.datos = r;
+      pintarAuditoria();
+    }).catch(function (e) {
+      if (mio !== AUD.turno) return;
+      $('aud-cuerpo').innerHTML = '<div class="aviso mal"><b>No se pudo consultar</b>' + esc(e.message) + '</div>';
+    });
+  }
+
+  function valorTxt(v) {
+    return v === true ? 'Sí' : v === false ? 'No' : String(v);
+  }
+
+  function pintarAuditoria() {
+    var r = AUD.datos;
+    var c = $('aud-cuerpo');
+    if (!r) return;
+    if (!r.habilitada) {
+      c.innerHTML = '<div class="aviso ojo"><b>La auditoría todavía no está activada</b>' +
+        'Falta preparar la planilla (hojas y columnas de auditoría). Mientras tanto, nada cambia en las apps.</div>';
+      return;
+    }
+    var n = (r.para_revisar || []).length;
+    $('n-aud').style.display = n ? '' : 'none';
+    $('n-aud').textContent = n;
+
+    var sem = r.semana || {};
+    var html = '<div class="aud-sem">' +
+      '<div><b>' + sem.liberadas + ' / ' + sem.tope + '</b><span>liberadas esta semana</span></div>' +
+      '<div><b>' + sem.hechas + '</b><span>hechas esta semana</span></div>' +
+      '<div><b>' + r.pendientes + '</b><span>esperando a un oficial</span></div>' +
+      '<div><b>' + r.en_cola + '</b><span>en cola para liberar</span></div></div>';
+
+    // proveedores
+    var provs = r.proveedores || [];
+    html += '<h3>Cómo viene cada proveedor</h3>';
+    if (!provs.length) {
+      html += '<div class="vacio">Todavía no hay proveedores con auditoría activa. Activala en Checklists, en la pestaña Auditoría de un tipo de equipo.</div>';
+    } else {
+      html += '<div class="tabla-env"><table><thead><tr><th>Proveedor</th><th>Calificación</th><th>Auditorías (últimos ' + r.config.ventana_dias + ' días)</th>' +
+        '<th>Resultado</th><th>Falsos conformes</th><th>Pendientes</th></tr></thead><tbody>' +
+        provs.map(function (p) {
+          var tot = p.realizadas || 0;
+          var pc = function (x) { return tot ? Math.round(x / tot * 100) : 0; };
+          return '<tr><td><b>' + esc(mayus(p.proveedor)) + '</b></td>' +
+            '<td><span class="nota ' + esc(p.nivel) + '">' + (p.calificacion === null ? '—' : p.calificacion) + '</span> ' +
+            '<small style="color:var(--tinta3)">' + esc(NOMBRE_NIVEL[p.nivel]) +
+            (p.nivel === 'sin_datos' ? ' (mínimo ' + r.config.min_calificacion + ')' : '') + '</small></td>' +
+            '<td class="num">' + tot + '</td>' +
+            '<td>' + (tot ? '<div class="barra"><i class="v" style="width:' + pc(p.conformes) + '%"></i><i class="y" style="width:' + pc(p.observaciones) +
+              '%"></i><i class="r" style="width:' + pc(p.no_conformes) + '%"></i></div><small style="color:var(--tinta3)">' +
+              p.conformes + ' conformes · ' + p.observaciones + ' obs. · ' + p.no_conformes + ' no conformes</small>' : '<small style="color:var(--tinta3)">sin auditorías</small>') + '</td>' +
+            '<td class="num">' + p.falsos_conformes + '</td>' +
+            '<td class="num">' + p.pendientes + (p.vencidas ? ' <small style="color:var(--rojo)">(' + p.vencidas + ' vencidas)</small>' : '') + '</td></tr>';
+        }).join('') + '</tbody></table></div>' +
+        '<p class="sub" style="margin-top:10px">La calificación es el porcentaje de conformes, donde una observación cuenta la mitad. ' +
+        'Un <b>falso conforme</b> es algo que el oficial midió fuera de regla y el proveedor no había reportado: es lo más serio.</p>';
+    }
+
+    // configuración
+    var cf = r.config;
+    html += '<h3>Cuántas auditorías por semana</h3><div class="aud-conf">' +
+      [['tope_semanal', 'Tope por semana'], ['plazo_dias', 'Plazo del oficial (días)'], ['pct_azar', '% al azar'], ['tolerancia_pct', 'Tolerancia general (%)']]
+        .map(function (x) { return '<div><label for="cf-' + x[0] + '">' + x[1] + '</label><input id="cf-' + x[0] + '" inputmode="numeric" value="' + esc(cf[x[0]]) + '"></div>'; }).join('') +
+      '<button class="btn pri" id="cf-guardar" type="button">Guardar</button><span id="cf-msg" role="status" style="font-size:13.5px"></span></div>' +
+      '<p class="sub" style="margin-top:-10px">El tope evita saturar a los oficiales: entran primero los equipos críticos y los registros con señales raras, ' +
+      'después el resto por antigüedad. Lo que no entra espera en cola hasta ' + cf.caduca_cola_dias + ' días.</p>';
+
+    // para revisar
+    html += '<h3>Para revisar' + (n ? ' (' + n + ')' : '') + '</h3>';
+    if (!n) html += '<div class="aviso ok"><b>Nada para revisar</b>No hay auditorías con observaciones sin mirar.</div>';
+    else html += r.para_revisar.map(function (a) {
+      return '<div class="aud-rev' + (a.resultado === 'no_conforme' ? ' rojo' : '') + '" data-id="' + esc(a.auditoria_id) + '">' +
+        '<div><span class="chip-res ' + esc(a.resultado) + '">' + esc(NOMBRE_RES[a.resultado] || a.resultado) + '</span> ' +
+        '<span class="caso-id">' + esc(a.equipo_id) + '</span> <span class="caso-meta">· ' + esc(mayus(a.proveedor)) + ' · auditó ' + esc(a.auditor || '—') +
+        ' · ' + esc(String(a.fecha_auditoria).slice(0, 10)) + (a.fuera_de_plazo ? ' · fuera de plazo' : '') + '</span></div>' +
+        '<div class="caso-meta">' + esc(a.equipo_referencia) + ' · preventivo del ' + esc(a.fecha_preventivo) + '</div>' +
+        (a.diferencias || []).map(function (d) {
+          return '<div class="dif">• <b>' + esc(d.etiqueta) + (d.indice ? ' ' + (d.indice + 1) : '') + '</b>: el proveedor cargó <b>' + esc(valorTxt(d.declarado)) +
+            esc(d.unidad || '') + '</b>, el oficial midió <b>' + esc(valorTxt(d.auditado)) + esc(d.unidad || '') + '</b>' +
+            (d.tolerancia ? ' (admite ±' + esc(d.tolerancia) + '%)' : '') + '</div>';
+        }).join('') +
+        (a.n_falsos ? '<div class="dif" style="color:var(--rojo)"><b>' + a.n_falsos + ' falso' + (a.n_falsos > 1 ? 's' : '') + ' conforme' + (a.n_falsos > 1 ? 's' : '') + '</b> (el oficial lo midió fuera de regla)</div>' : '') +
+        (a.observaciones ? '<div class="caso-meta" style="margin-top:6px">Oficial: ' + esc(a.observaciones) + '</div>' : '') +
+        '<div class="acc"><input data-motivo placeholder="Motivo (obligatorio para descartar)" maxlength="300">' +
+        '<button class="btn ok chico" data-dec="confirmada" type="button">Confirmar</button>' +
+        '<button class="btn no chico" data-dec="descartada" type="button">Descartar</button></div></div>';
+    }).join('');
+
+    // recientes
+    var rec = r.recientes || [];
+    if (rec.length) {
+      html += '<h3>Últimas auditorías</h3><div class="tabla-env"><table><thead><tr><th>Fecha</th><th>Equipo</th><th>Proveedor</th><th>Auditó</th><th>Resultado</th><th>Revisión</th></tr></thead><tbody>' +
+        rec.map(function (a) {
+          return '<tr><td>' + esc(String(a.fecha_auditoria).slice(0, 10)) + '</td><td class="mono">' + esc(a.equipo_id) + '</td><td>' + esc(mayus(a.proveedor)) +
+            '</td><td>' + esc(a.auditor) + '</td><td><span class="chip-res ' + esc(a.resultado) + '">' + esc(NOMBRE_RES[a.resultado] || a.resultado) + '</span></td><td>' +
+            esc(a.revision || (a.resultado === 'conforme' ? '' : 'sin revisar')) + '</td></tr>';
+        }).join('') + '</tbody></table></div>';
+    }
+    c.innerHTML = html;
+
+    $('cf-guardar').addEventListener('click', guardarConfigAuditoria);
+    Array.prototype.forEach.call(c.querySelectorAll('[data-dec]'), function (b) {
+      b.addEventListener('click', function () {
+        var caja = b.closest('.aud-rev');
+        revisarAuditoria(caja.getAttribute('data-id'), b.getAttribute('data-dec'), caja.querySelector('[data-motivo]').value.trim(), b);
+      });
+    });
+  }
+
+  function guardarConfigAuditoria() {
+    var cuerpo = {};
+    ['tope_semanal', 'plazo_dias', 'pct_azar', 'tolerancia_pct'].forEach(function (k) { cuerpo[k] = $('cf-' + k).value.trim(); });
+    var clave = '', autor = '';
+    try { clave = localStorage.getItem('go_admin_clave') || ''; autor = localStorage.getItem('go_admin_nombre') || ''; } catch (e) {}
+    cuerpo.autor = autor;
+    $('cf-guardar').disabled = true;
+    pedir('/admin/auditoria/config', { method: 'POST', headers: { Authorization: 'Clave ' + clave }, body: cuerpo })
+      .then(function () { cargarAuditoria(); })
+      .catch(function (e) {
+        $('cf-guardar').disabled = false;
+        $('cf-msg').innerHTML = '<span style="color:var(--rojo);font-weight:700">' + esc(e.message) + '</span>';
+      });
+  }
+
+  function revisarAuditoria(id, decision, motivo, boton) {
+    if (decision === 'descartada' && !motivo) { alert('Escribí el motivo del descarte.'); return; }
+    var quien = quienDecide();
+    if (!quien) {
+      quien = (prompt('¿Quién revisa? Nombre y apellido') || '').trim();
+      if (quien.length < 3) return;
+      guardarQuien(quien);
+    }
+    boton.disabled = true;
+    pedir('/auditoria/' + encodeURIComponent(id) + '/revision', { method: 'POST', body: { decision: decision, motivo: motivo, usuario: quien } })
+      .then(cargarAuditoria)
+      .catch(function (e) { boton.disabled = false; alert('No se pudo guardar: ' + e.message); });
+  }
+
   /* ── pestañas ───────────────────────────────────────────────── */
   function irAPestana(v) {
     document.querySelectorAll('.pest').forEach(function (x) {
@@ -1297,6 +1479,7 @@ td.num{font-family:var(--mono);text-align:right;}
     $(v).classList.add('on');
     if (v === 'v-historial' && !DATOS.historial) cargarHistorial();
     if (v === 'v-empresas') cargarEmpresas(false);
+    if (v === 'v-auditoria') cargarAuditoria();
   }
   document.querySelectorAll('.pest').forEach(function (b) {
     b.addEventListener('click', function () {
@@ -1311,7 +1494,10 @@ td.num{font-family:var(--mono);text-align:right;}
   $('q-equipo').addEventListener('keydown', function (e) {
     if (e.key === 'Enter') buscarEquipo();
   });
-  $('refrescar').addEventListener('click', function () { DATOS.historial = null; cargar(); });
+  $('refrescar').addEventListener('click', function () {
+    DATOS.historial = null; cargar();
+    if ($('v-auditoria').classList.contains('on')) cargarAuditoria();
+  });
   $('inst').addEventListener('change', function () {
     DATOS.historial = null;      // el historial también depende de la institución
     cargar();
@@ -1326,6 +1512,7 @@ td.num{font-family:var(--mono);text-align:right;}
 
   cargar();
   cargarEmpresasFiltro();
+  cargarAuditoria();       // solo para el contador de la pestaña
 })();
 </script>
 </body>

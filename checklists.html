@@ -90,6 +90,10 @@ button{font:inherit;color:inherit;}
 .pr .flechas{display:flex;flex-direction:column;padding-right:4px;}
 .pr .flechas button{border:0;background:none;cursor:pointer;color:var(--tinta3);font-size:11px;padding:2px 7px;line-height:1;}
 .pr .flechas button:disabled{opacity:.25;cursor:default;}
+.aud-fila{display:flex;align-items:center;gap:14px;padding:9px 18px;border-top:1px solid var(--linea2);}
+.aud-fila .et{flex:1;min-width:0;font-weight:600;line-height:1.25;}
+.aud-fila.no .et{color:var(--tinta3);font-weight:500;}
+.aud-tol{display:flex;gap:6px;align-items:center;font-size:13.5px;color:var(--tinta2);}
 .retiradas{border-top:1px solid var(--linea2);padding:10px 14px;}
 .retiradas summary{cursor:pointer;font-size:14px;color:var(--tinta2);font-weight:600;}
 .ret{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;font-size:14px;color:var(--tinta2);}
@@ -460,13 +464,120 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
     if ($('editarTipo')) $('editarTipo').onclick = function () { if (seguirSiHayCambios()) abrirTipoForm(t.tipo_id); };
     enlazarPestanas();
     if (S.modo === 'alta' && !t.bloque) return pintarAlta();
+    if (S.modo === 'auditoria' && !t.bloque) return pintarAuditoria();
     pintarLista();
     pintarPanel();
   }
 
+  /* ════════════════ auditoría de un tipo ════════════════
+     Un oficial verifica en el equipo una muestra de lo que hizo el proveedor. Acá se
+     decide qué tipos se auditan y cuáles de sus preguntas: solo las que un oficial sabe
+     verificar. Marcar una pregunta no cambia el checklist del proveedor (no sube su
+     versión), y cada cambio se guarda al instante. */
+  var AUDITABLES = ['si_no', 'opciones', 'numero'];
+
+  function pintarAuditoria() {
+    var t = tipoDe(S.tipo);
+    var cont = $('lista').parentNode;
+    cont.className = '';
+    cont.style.padding = '18px 22px 40px';
+
+    if (!CAT.auditoria_lista) {
+      cont.innerHTML = '<section class="caja"><div class="aviso amb" style="margin:18px"><b>Falta preparar la planilla.</b> ' +
+        'Para poder auditar hay que agregar estas columnas en la fila de encabezados: <code>auditoria_activa</code> y ' +
+        '<code>auditoria_pct</code> en la hoja <b>catalogo_tipos</b>, y <code>auditable</code> y <code>tolerancia_pct</code> ' +
+        'en la hoja <b>tipos_campos</b>.</div></section>';
+      return;
+    }
+
+    var items = checklist(S.tipo);
+    var elegibles = items.filter(function (c) { return AUDITABLES.indexOf(c.tipo_campo) >= 0; });
+    var marcadas = elegibles.filter(function (c) { return c.auditable; }).length;
+
+    var html = '<section class="caja"><div class="caja-cab"><h3>Auditar este tipo de equipo</h3></div><div style="padding:16px 18px">' +
+      '<button type="button" class="switch" id="aud-tipo" aria-pressed="' + !!t.auditoria_activa + '"' + (S.ocupado ? ' disabled' : '') + '>' +
+      '<span class="pista"></span><span><b>' + (t.auditoria_activa ? 'Se audita' : 'No se audita') + '</b></span></button>' +
+      '<div class="nota-precarga" style="margin-top:10px">Cuando el proveedor termina un preventivo, el sistema elige algunos para que un oficial ' +
+      'los verifique en el equipo. El proveedor no sabe cuáles. Siempre se auditan los equipos críticos y los registros con señales raras ' +
+      '(sin GPS o sin fotos); del resto, un porcentaje al azar. Cuántas auditorías llegan por semana se configura en el Panel de control.</div>';
+
+    if (t.auditoria_activa) {
+      html += '<div class="fila" style="margin-top:14px"><div class="campo"><label for="aud-pct">Porcentaje al azar de este tipo</label>' +
+        '<input type="text" inputmode="numeric" id="aud-pct" class="num w-chico" placeholder="general" value="' +
+        (t.auditoria_pct === null || t.auditoria_pct === undefined ? '' : esc(t.auditoria_pct)) + '"></div>' +
+        '<button type="button" class="b chico" id="aud-pct-g" disabled>Guardar</button></div>' +
+        '<div class="nota" style="font-size:13px;color:var(--tinta3);margin-top:5px">Vacío = el porcentaje general del Panel de control.</div>';
+      if (!marcadas) {
+        html += '<div class="aviso az">Marcá al menos una pregunta como auditable: sin preguntas auditables no se genera ninguna auditoría.</div>';
+      }
+    }
+    html += '</div></section>';
+
+    if (t.auditoria_activa) {
+      html += '<section class="caja" style="margin-top:18px"><div class="caja-cab"><h3>Qué se audita (' + marcadas + ' de ' + elegibles.length + ')</h3></div>' +
+        '<div style="padding:12px 18px 4px;font-size:13.5px;color:var(--tinta2)">Marcá solo lo que un oficial sabe verificar parado frente al equipo. ' +
+        'Las fotos, los textos y los cálculos no se pueden auditar. Un oficial no ve lo que respondió el proveedor: mide primero y el sistema compara después.</div><div>';
+      items.forEach(function (c) {
+        var puede = AUDITABLES.indexOf(c.tipo_campo) >= 0;
+        var delBloque = c.tipo_id !== S.tipo;
+        html += '<div class="aud-fila' + (puede ? '' : ' no') + '"><span class="et">' + esc(c.etiqueta) +
+          '<span class="sb" style="display:block;font-weight:400;font-size:12.5px;color:var(--tinta3)">' + esc(NOMBRE_RESP[c.tipo_campo] || c.tipo_campo) +
+          (delBloque ? ' · de ' + esc(nombreTipo(c.tipo_id)) + ': vale para todos los tipos que lo usan' : '') + '</span></span>';
+        if (puede) {
+          if (c.tipo_campo === 'numero' && c.auditable) {
+            html += '<span class="aud-tol">admite ±<input type="text" inputmode="numeric" class="num w-chico" style="width:70px!important" data-tol="' + esc(c.campo_id) +
+              '" data-t="' + esc(c.tipo_id) + '" placeholder="gral." value="' + (c.tolerancia === null || c.tolerancia === undefined ? '' : esc(c.tolerancia)) + '">%</span>';
+          }
+          html += '<button type="button" class="switch" data-aud="' + esc(c.campo_id) + '" data-t="' + esc(c.tipo_id) + '" aria-pressed="' + !!c.auditable + '"' +
+            (S.ocupado ? ' disabled' : '') + ' aria-label="Auditable"><span class="pista"></span></button>';
+        } else {
+          html += '<span class="sb" style="font-size:12.5px;color:var(--tinta3)">no auditable</span>';
+        }
+        html += '</div>';
+      });
+      html += '</div></section>';
+    }
+    cont.innerHTML = html;
+
+    function guardarAud(ruta, cuerpo, ok) {
+      if (S.ocupado) return;
+      S.ocupado = true;
+      api(ruta, cuerpo).then(function (r) { CAT = r; toast(ok); })
+        .catch(function (e) { toast(e.message, true); })
+        .finally(function () { S.ocupado = false; pintarLado(); pintarAuditoria(); });
+    }
+
+    $('aud-tipo').onclick = function () {
+      guardarAud('/admin/tipo/auditoria', { tipo_id: t.tipo_id, activa: !t.auditoria_activa },
+        t.auditoria_activa ? 'Ya no se audita este tipo' : 'Este tipo se va a auditar');
+    };
+    if ($('aud-pct')) {
+      var pct = $('aud-pct'), pctG = $('aud-pct-g');
+      var original = pct.value;
+      pct.oninput = function () { pctG.disabled = S.ocupado || pct.value.trim() === original; };
+      pctG.onclick = function () {
+        guardarAud('/admin/tipo/auditoria', { tipo_id: t.tipo_id, activa: true, pct: pct.value.trim() }, 'Porcentaje guardado');
+      };
+    }
+    Array.prototype.forEach.call(cont.querySelectorAll('[data-aud]'), function (b) {
+      b.onclick = function () {
+        var id = b.getAttribute('data-aud');
+        var c = items.filter(function (x) { return x.campo_id === id; })[0];
+        guardarAud('/admin/campo/auditoria', { tipo_id: b.getAttribute('data-t'), campo_id: id, auditable: !c.auditable },
+          c.auditable ? 'Ya no se audita esa pregunta' : 'Pregunta marcada como auditable');
+      };
+    });
+    Array.prototype.forEach.call(cont.querySelectorAll('[data-tol]'), function (inp) {
+      inp.onchange = function () {
+        guardarAud('/admin/campo/auditoria', { tipo_id: inp.getAttribute('data-t'), campo_id: inp.getAttribute('data-tol'),
+          auditable: true, tolerancia: inp.value.trim() }, 'Tolerancia guardada');
+      };
+    });
+  }
+
   /** Un tipo tiene dos cosas que configurar: el checklist de cada visita y los datos del alta. */
   function pestanas() {
-    return '<div class="pills" style="margin:14px 0">' + [['preguntas', 'Preguntas del preventivo'], ['alta', 'Datos del alta']].map(function (x) {
+    return '<div class="pills" style="margin:14px 0">' + [['preguntas', 'Preguntas del preventivo'], ['alta', 'Datos del alta'], ['auditoria', 'Auditoría']].map(function (x) {
       return '<button type="button" class="pill' + (S.modo === x[0] ? ' on' : '') + '" data-modo="' + x[0] + '" aria-pressed="' + (S.modo === x[0]) + '">' + x[1] + '</button>';
     }).join('') + '</div>';
   }
