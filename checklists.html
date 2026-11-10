@@ -478,7 +478,9 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
 
   function pintarAuditoria() {
     var t = tipoDe(S.tipo);
-    var cont = $('lista').parentNode;
+    // al repintar, #lista ya no existe: el contenedor se reconoce por su id
+    var cont = $('aud-cont') || $('lista').parentNode;
+    cont.id = 'aud-cont';
     cont.className = '';
     cont.style.padding = '18px 22px 40px';
 
