@@ -730,11 +730,27 @@ td.num{font-family:var(--mono);text-align:right;}
   /* Estado de un equipo. Sirve también para listados que traen el semáforo
      del servidor pero quizás no los días. */
   function estadoDe(e) {
+    // con niveles manda el semáforo del servidor: cada nivel tiene su propio aviso en amarillo
+    if (e.niveles && (e.semaforo === 'rojo' || e.semaforo === 'amarillo' || e.semaforo === 'verde')) return e.semaforo;
     if (typeof e.dias_restantes === 'number') return estadoVenc(e.dias_restantes);
     if (e.semaforo === 'amarillo' || e.semaforo === 'verde') return e.semaforo;
     return 'rojo';
   }
   function textoVenc(e) {
+    var t = textoVencBase(e);
+    var n = e.niveles && e.niveles.length > 1 ? e.niveles.filter(function (x) { return x.nivel === e.nivel_pendiente; })[0] : null;
+    return n ? n.nombre + ' · ' + t : t;
+  }
+  /* Una línea por nivel: cuándo se hizo por última vez y cuándo vence. */
+  function lineaNiveles(e) {
+    if (!e.niveles || e.niveles.length < 2) return '';
+    return e.niveles.map(function (n) {
+      var d = n.dias_restantes;
+      var cuando = d === null || d === undefined ? 'sin fecha' : (d < 0 ? 'venció hace ' + Math.abs(d) + ' d' : d === 0 ? 'vence hoy' : 'vence en ' + d + ' d');
+      return n.nombre + ' (' + (n.responsable === 'externo' ? 'empresa' : 'oficial') + '): ' + cuando;
+    }).join(' · ');
+  }
+  function textoVencBase(e) {
     var dias = e.dias_restantes;
     if ('ultimo_preventivo' in e && !e.ultimo_preventivo) {
       if (dias === null || dias === undefined) return '1er preventivo pendiente';
@@ -967,6 +983,7 @@ td.num{font-family:var(--mono);text-align:right;}
       '<span class="eq-id">' + esc(e.equipo_id) + '</span></div>' +
       '<div class="eq-tit">' + esc([e.marca, nombreTipo(e.tipo)].filter(Boolean).join(' · ') || e.equipo_id) + '</div>' +
       '<div class="eq-ubi">' + esc(ubic || '—') + '</div>' +
+      (lineaNiveles(e) ? '<div class="eq-ubi">' + esc(lineaNiveles(e)) + '</div>' : '') +
       '<div class="eq-pie"><span>' + esc(e.responsable === 'externo' ? 'Proveedor externo' : 'Mantenimiento propio') +
       (e.ultimo_preventivo ? ' · último ' + esc(e.ultimo_preventivo) : '') + '</span>' +
       '<button type="button" class="btn chico hist" data-hist="' + esc(e.equipo_id) + '">Ver historial</button></div>' +
@@ -1050,7 +1067,8 @@ td.num{font-family:var(--mono);text-align:right;}
               : (e.dias_restantes < 0 ? 'venció' : 'en ' + e.dias_restantes + ' d'),
             { rojo: 'r', amarillo: 'y', verde: 'v' }[estadoDe(e)],
             e.proximo_venc || 'sin registro') +
-        '</dl>';
+        '</dl>' +
+        (lineaNiveles(e) ? '<p class="sub">' + esc(lineaNiveles(e)) + '</p>' : '');
 
       if (!r.eventos.length) {
         $('ficha').innerHTML = cab + '<div class="vacio">Todavía no hay nada registrado.</div>';

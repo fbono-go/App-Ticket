@@ -606,9 +606,10 @@
     let eq = buscarLocal(id);
     if (!eq && navigator.onLine) {
       try {
-        const r = await api('/equipo/' + encodeURIComponent(id), { timeout: 15000 });
+        const r = await api('/equipo/' + encodeURIComponent(id) + '?responsable=' + encodeURIComponent(FILTRO()), { timeout: 15000 });
         eq = r.equipo;
         if (eq && r.checklist) eq._checklist = r.checklist;
+        if (eq && r.nivel !== undefined) eq._nivel = r.nivel;
         if (eq && r.afecta_ambientes) eq._afecta = r.afecta_ambientes;
       } catch (e) {
         if (e.status !== 404) {
@@ -757,12 +758,19 @@
     if (dias <= 7) return 'amarillo';
     return 'verde';
   }
-  const estadoEquipo = (e) => estadoVenc(e.dias_restantes);
+  // con niveles el color lo manda el servidor: cada nivel tiene su propio aviso en amarillo
+  const estadoEquipo = (e) => (e.niveles && ['rojo', 'amarillo', 'verde'].includes(e.semaforo)
+    ? e.semaforo : estadoVenc(e.dias_restantes));
   const ORDEN_ESTADO = { rojo: 0, amarillo: 1, verde: 2 };
   const porPrioridad = (a, b) => (ORDEN_ESTADO[a._est] - ORDEN_ESTADO[b._est]) ||
     ((a.dias_restantes ?? -9999) - (b.dias_restantes ?? -9999));
 
   function textoVenc(e) {
+    const base = textoVencBase(e);
+    const n = e.niveles && e.niveles.length > 1 ? e.niveles.find((x) => x.nivel === e.nivel_pendiente) : null;
+    return n ? n.nombre + ' · ' + base : base;
+  }
+  function textoVencBase(e) {
     const d = e.dias_restantes;
     if (!e.ultimo_preventivo) {
       if (d === null || d === undefined) return '1er preventivo pendiente';
@@ -1325,21 +1333,36 @@
       aviso('El alta de un equipo nuevo necesita conexión. Anotá el código y volvé con señal.');
       return;
     }
+    // un nivel de empresa sin empresa cargada no lo puede hacer nadie
+    const planAlta = (tipoDe(cuerpo.tipo) || {}).plan || [];
+    if (ROL === 'oficial' && planAlta.some((n) => n.responsable === 'externo') && !cuerpo.empresa) {
+      aviso('Elegí la empresa que hace el preventivo «' + planAlta.filter((n) => n.responsable === 'externo')[0].nombre + '».');
+      return;
+    }
     try {
       $('prev-pant-alta').classList.add('cargando');
       const r = await api('/equipo', { method: 'POST', body: cuerpo });
+      // con plan de niveles, el equipo recién creado se pide de nuevo: trae sus niveles
+      let ficha = null;
+      if (((tipoDe(cuerpo.tipo) || {}).plan || []).length) {
+        try { ficha = await api('/equipo/' + encodeURIComponent(cuerpo.equipo_id) + '?responsable=' + encodeURIComponent(FILTRO()), { timeout: 15000 }); }
+        catch (e) { ficha = null; }
+      }
       // se guarda con su función: si no, una condensadora recién creada no
       // aparecía como opción de "equipo padre" hasta refrescar el inventario
       const tipoNuevo = tipoDe(cuerpo.tipo);
       const nuevo = Object.assign({}, cuerpo, {
         funcion: (tipoNuevo && tipoNuevo.funcion) || '',
         empresa_clave: claveEmpresa(cuerpo.empresa),
-      });
+      }, ficha ? ficha.equipo : {});
       // al inventario del celular solo entra si es de quien lo carga
-      if (cuerpo.responsable === POLITICA() && !esAjeno(nuevo)) INVENTARIO.push(nuevo);
+      const esMioNuevo = ficha && ficha.equipo.niveles ? nivelesMios(ficha.equipo).length > 0
+        : cuerpo.responsable === POLITICA();
+      if (esMioNuevo && !esAjeno(nuevo)) INVENTARIO.push(nuevo);
       await dbSet('kv', { time: Date.now(), equipos: INVENTARIO }, claveInventario(instId));
       aviso('Equipo dado de alta');
-      abrirChecklist(Object.assign({}, cuerpo, { tipo: cuerpo.tipo }));
+      abrirChecklist(Object.assign({}, cuerpo, ficha ? ficha.equipo : {}, { tipo: cuerpo.tipo },
+        ficha ? { _checklist: ficha.checklist, _nivel: ficha.nivel } : {}));
     } catch (e) {
       aviso(e.message || 'No se pudo dar de alta');
     } finally {
@@ -1347,9 +1370,64 @@
     }
   }
 
+  /* ---- niveles de preventivo ----
+     Un equipo de un tipo con plan trae `niveles` (mensual, mayor...). Cada persona ve
+     solo los que le tocan: el oficial los suyos, la empresa los de empresa. Al
+     registrar uno, el servidor deja cumplidos los menores. */
+  let nivelActual = null;      // null = equipo sin plan de niveles
+  const esMio = (n) => (ROL === 'oficial' ? n.responsable === 'oficial' : n.responsable === 'externo');
+  const nivelesMios = (eq) => ((eq && eq.niveles) || []).filter(esMio);
+  const planDe = (eq) => { const t = tipoDe(eq.tipo); return (t && t.plan) || []; };
+  const nombreNivelDe = (eq, n) => { const x = ((eq && eq.niveles) || []).find((y) => y.nivel === n); return x ? x.nombre : 'Nivel ' + n; };
+
+  /** Preguntas del nivel: las de ese nivel (y las menores si hereda) y las de todos. */
+  function preguntasDeNivel(campos, plan, nivel) {
+    const p = plan.find((x) => x.nivel === nivel);
+    return campos.filter((c) => {
+      if (c.nivel === undefined) return true;                  // catálogo viejo en el celular: sin filtrar
+      if (c.nivel === 'todos' || c.tipo_campo === 'foto' || c.campo_id === 'observaciones') return true;
+      return p && p.hereda ? Number(c.nivel) <= nivel : Number(c.nivel) === nivel;
+    });
+  }
+  function checklistDeNivel(eq, nivel) {
+    if (eq._checklist && eq._nivel === nivel) return eq._checklist;
+    const t = tipoDe(eq.tipo);
+    return expandir(preguntasDeNivel((t && t.campos) || [], planDe(eq), nivel), eq);
+  }
+  /** Qué niveles quedan cumplidos al hacer `nivel`, según el plan. */
+  function cubiertosPor(eq, nivel) {
+    const plan = planDe(eq);
+    const p = plan.find((x) => x.nivel === nivel);
+    const menores = plan.filter((x) => x.nivel < nivel).map((x) => x.nivel);
+    return p && p.cubre ? menores.filter((n) => p.cubre.includes(n)) : menores;
+  }
+  function cambiarNivel(n) {
+    if (!equipoActual || n === nivelActual) return;
+    nivelActual = n;
+    checklistActual = checklistDeNivel(equipoActual, n);
+    renderChecklist();
+  }
+  /** Con lo que acaba de contestar el servidor, deja el equipo del celular al día. */
+  function actualizarLocalNiveles(local, r) {
+    local.niveles = r.niveles;
+    const mios = nivelesMios(local);
+    if (!mios.length) return;
+    const orden = { rojo: 3, amarillo: 2, gris: 1, verde: 0 };
+    const peor = mios.reduce((a, b) => (orden[b.semaforo] > orden[a.semaforo] ||
+      (orden[b.semaforo] === orden[a.semaforo] && (b.dias_restantes ?? 1e9) < (a.dias_restantes ?? 1e9)) ? b : a));
+    const pedibles = mios.filter((n) => n.semaforo === 'rojo' || n.semaforo === 'amarillo' || n.adelantable);
+    local.nivel_sugerido = (pedibles.length ? pedibles.reduce((a, b) => (b.nivel > a.nivel ? b : a)) : mios[0]).nivel;
+    local.nivel_pendiente = peor.nivel;
+    local.proximo_venc = peor.proximo_venc;
+    local.dias_restantes = peor.dias_restantes;
+    local.semaforo = peor.semaforo;
+    local.adelantable = !!(mios.find((n) => n.nivel === local.nivel_sugerido) || {}).adelantable;
+  }
+
   /* ---- checklist ---- */
   function abrirChecklist(eq) {
     equipoActual = eq;
+    nivelActual = null;
     AUD = null;
     respuestas = {};
     fotos = [];
@@ -1359,7 +1437,14 @@
     // del caché local (que es el caso normal, sin señal), se expande acá con la
     // misma regla.
     const t = tipoDe(eq.tipo);
-    checklistActual = eq._checklist || expandir((t && t.campos) || [], eq);
+    const mios = nivelesMios(eq);
+    if (mios.length && !AUD) {
+      // el nivel que se ofrece es el que calculó el servidor; si no es de esta persona, el primero suyo
+      nivelActual = eq._nivel || (mios.some((n) => n.nivel === eq.nivel_sugerido) ? eq.nivel_sugerido : mios[0].nivel);
+      checklistActual = checklistDeNivel(eq, nivelActual);
+    } else {
+      checklistActual = eq._checklist || expandir((t && t.campos) || [], eq);
+    }
     if (!checklistActual.length) {
       aviso('No hay checklist cargado para ese tipo de equipo');
       mostrar('prev-pant-inicio');
@@ -1409,6 +1494,13 @@
           eq.ubicacion_detalle].filter(Boolean).join(' · '))}</div>
         ${eq._afecta ? `<div class="prev-ficha-sub">De este equipo dependen ${
           eq._afecta} ambiente${eq._afecta > 1 ? 's' : ''}</div>` : ''}
+        ${nivelActual === null ? '' : `
+        <div class="prev-ficha-sub">Preventivo: <b>${esc(nombreNivelDe(eq, nivelActual))}</b>${(() => {
+          const c = cubiertosPor(eq, nivelActual).map((n) => nombreNivelDe(eq, n));
+          return c.length ? ' · deja cumplido: ' + esc(c.join(', ')) : '';
+        })()}</div>
+        ${nivelesMios(eq).length > 1 ? `<div class="prev-sw">${nivelesMios(eq).map((n) => `
+          <button class="prev-op ${n.nivel === nivelActual ? 'on' : ''}" onclick="PREV.cambiarNivel(${n.nivel})">${esc(n.nombre)}</button>`).join('')}</div>` : ''}`}
         ${AUD ? `<div class="prev-ficha-sub"><b>Auditoría a proveedor</b></div>`
           : eq.ultimo_preventivo
           ? `<div class="prev-ficha-sub">Último: ${esc(eq.ultimo_preventivo)}${
@@ -1764,6 +1856,7 @@
       crear_correctivo: enviarCorrectivo,
       motivo_no_correctivo: motivoNoCorrectivo.trim(),
     };
+    if (nivelActual !== null) reg.nivel = nivelActual;
 
     if (!navigator.onLine) {
       await encolar(reg);
@@ -1784,8 +1877,12 @@
       const local = buscarLocal(reg.equipo_id);
       if (local) {
         local.ultimo_preventivo = reg.fecha.slice(0, 10);
-        local.proximo_venc = r.proximo_venc;
-        local.semaforo = 'verde';
+        if (r.niveles) {
+          actualizarLocalNiveles(local, r);
+        } else {
+          local.proximo_venc = r.proximo_venc;
+          local.semaforo = 'verde';
+        }
       }
       volverAEscanear();
     } catch (e) {
@@ -3150,7 +3247,7 @@
     editar, guardarEdicion, pedirBaja, guardarBaja, mostrarBloqueado,
     filtrarLugar, filtrarEstado, abrirPreventivo, volverHistorial,
     motivoNoCorrectivo: setMotivoNoCorrectivo,
-    altaTipoCambio, altaCompresores, guardarAlta, todoConforme, set, setNum, setTxt, signo,
+    altaTipoCambio, altaCompresores, guardarAlta, cambiarNivel, todoConforme, set, setNum, setTxt, signo,
     guardarRegistro, guardarAuditoria, abrirAuditoria,
     agregarFotos, sincronizar,
     quitarFoto: (i) => { fotos.splice(i, 1); pintarFotos(); },
