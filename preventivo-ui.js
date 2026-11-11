@@ -1024,6 +1024,9 @@
   const PREF_EDITAR = 'prev-de-';
   const idDato = (c, pref) => pref + c.campo_id;
   const altaDeTipo = (tipoId) => (tipoDe(tipoId) || {}).alta || [];
+  // Marca, capacidad, compresores y referencias eran preguntas fijas. Cuando el tipo ya
+  // las tiene como preguntas del alta (editables desde el creador), se piden por ahí.
+  const pideEnAlta = (tipoId, id) => altaDeTipo(tipoId).some((c) => c.campo_id === id);
 
   /** Dibuja las preguntas; `datos` precarga las respuestas cuando se corrige. */
   function datosHtml(campos, datos, pref) {
@@ -1134,13 +1137,13 @@
       <div class="prev-hint">Si lo mantiene una empresa, desde el alta aparece en la app de esa empresa.</div>`
       : `<div class="prev-hint" style="margin-top:12px">Queda a nombre de <b>${esc(EMPRESA())}</b>.</div>`}
 
-      <label class="prev-lbl">Marca</label>
+      ${pideEnAlta(coincide.tipo_id, 'marca') ? '' : `<label class="prev-lbl">Marca</label>
       <input id="prev-a-marca" class="prev-input" maxlength="40"
-             placeholder="${esc(ejemplosDe(coincide)[0])}">
+             placeholder="${esc(ejemplosDe(coincide)[0])}">`}
 
-      <label class="prev-lbl">Capacidad</label>
+      ${pideEnAlta(coincide.tipo_id, 'capacidad') ? '' : `<label class="prev-lbl">Capacidad</label>
       <input id="prev-a-cap-eq" class="prev-input" maxlength="30"
-             placeholder="${esc(ejemplosDe(coincide)[1])}">
+             placeholder="${esc(ejemplosDe(coincide)[1])}">`}
 
       ${datosHtml(coincide.alta, null, PREF_ALTA)}
 
@@ -1258,9 +1261,10 @@
     // El consumo de referencia se lee de la chapa UNA vez, en el alta.
     // Después el técnico solo mide el real y el sistema compara solo.
     const campos = (t && t.campos) || [];
-    const pideRef = campos.some((c) => c.dispara && c.dispara.ref === 'ref_consumo_a');
-    const pideCap = campos.some((c) => c.dispara && c.dispara.ref === 'ref_capacitor_uf');
-    const repite = campos.some((c) => c.repetir_por === 'cant_compresores');
+    const tid = t && t.tipo_id;
+    const pideRef = campos.some((c) => c.dispara && c.dispara.ref === 'ref_consumo_a') && !pideEnAlta(tid, 'ref_consumo_a');
+    const pideCap = campos.some((c) => c.dispara && c.dispara.ref === 'ref_capacitor_uf') && !pideEnAlta(tid, 'ref_capacitor_uf');
+    const repite = campos.some((c) => c.repetir_por === 'cant_compresores') && !pideEnAlta(tid, 'cant_compresores');
 
     $('prev-a-extra').innerHTML = (pideRef ? `
       ${repite ? `<label class="prev-lbl">¿Cuántos compresores tiene?</label>
@@ -2514,13 +2518,13 @@
         <p>Estos datos los arreglás vos y quedan registrados con tu nombre.</p>
       </div>
 
-      <label class="prev-lbl">Marca</label>
+      ${pideEnAlta(eq.tipo, 'marca') ? '' : `<label class="prev-lbl">Marca</label>
       <input id="prev-e-marca" class="prev-input" value="${esc(eq.marca || '')}"
-             placeholder="${esc(ejemplosDe(tipoDe(eq.tipo) || eq)[0])}">
+             placeholder="${esc(ejemplosDe(tipoDe(eq.tipo) || eq)[0])}">`}
 
-      <label class="prev-lbl">Capacidad</label>
+      ${pideEnAlta(eq.tipo, 'capacidad') ? '' : `<label class="prev-lbl">Capacidad</label>
       <input id="prev-e-cap" class="prev-input" value="${esc(eq.capacidad || '')}"
-             placeholder="${esc(ejemplosDe(tipoDe(eq.tipo) || eq)[1])}">
+             placeholder="${esc(ejemplosDe(tipoDe(eq.tipo) || eq)[1])}">`}
 
       ${datosHtml(altaDeTipo(eq.tipo), eq.datos, PREF_EDITAR)}
 
@@ -2570,8 +2574,6 @@
     const alimenta = ['generacion', 'distribucion'].includes(eq.funcion);
 
     const campos = {
-      marca: ($('prev-e-marca').value || '').trim(),
-      capacidad: ($('prev-e-cap').value || '').trim(),
       ubicacion_detalle: ($('prev-e-det').value || '').trim(),
       periodicidad_dias: ($('prev-e-per').value || '').trim(),
       criticidad: ($('prev-e-crit').value || '').trim(),
@@ -2580,6 +2582,9 @@
     if (!alimenta && $('prev-e-padre')) {
       campos.equipo_padre = $('prev-e-padre').value || '';
     }
+    // si marca y capacidad son preguntas del alta, viajan con los demás datos
+    if ($('prev-e-marca')) campos.marca = ($('prev-e-marca').value || '').trim();
+    if ($('prev-e-cap')) campos.capacidad = ($('prev-e-cap').value || '').trim();
 
     // Solo viaja lo que el técnico cambió. Un inventario guardado en el celular
     // desde antes de esta versión no trae los datos del alta: mandar todo como

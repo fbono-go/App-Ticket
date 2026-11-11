@@ -514,7 +514,7 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
       niveles: plan.map(function (n) {
         return {
           nivel: n.nivel, nombre: n.nombre, cada_dias: String(n.cada_dias), responsable: n.responsable,
-          aviso_dias: String(n.aviso_dias), duracion_min: n.duracion_min == null ? '' : String(n.duracion_min),
+          cada_horas: n.cada_horas == null ? '' : String(n.cada_horas), aviso_dias: String(n.aviso_dias), duracion_min: n.duracion_min == null ? '' : String(n.duracion_min),
           cubre: n.cubre === null ? 'menores' : (n.cubre.length ? n.cubre : 'nada'), hereda: !!n.hereda,
         };
       }),
@@ -523,12 +523,12 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
   function nivelNuevo(F, t) {
     var k = F.niveles.length + 1;
     if (k === 1) {
-      return { nivel: 1, nombre: 'Mensual', cada_dias: String(t.periodicidad_default || 30), responsable: 'oficial',
+      return { nivel: 1, nombre: 'Mensual', cada_dias: String(t.periodicidad_default || 30), responsable: 'oficial', cada_horas: '',
         aviso_dias: '7', duracion_min: '', cubre: 'menores', hereda: false };
     }
     var ant = Number(F.niveles[k - 2].cada_dias) || 30;
     var cada = Math.min(3650, ant < 365 ? 365 : ant * 2);
-    return { nivel: k, nombre: k === 2 ? 'Mayor' : 'Nivel ' + k, cada_dias: String(cada), responsable: 'externo',
+    return { nivel: k, nombre: k === 2 ? 'Mayor' : 'Nivel ' + k, cada_dias: String(cada), responsable: 'externo', cada_horas: '',
       aviso_dias: String(Math.min(45, cada - 1)), duracion_min: '', cubre: 'menores', hereda: false };
   }
 
@@ -541,6 +541,7 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
       if (!n.nombre.trim()) msg = 'Falta el nombre del nivel ' + (i + 1) + '.';
       else if (cada === null || cada < 1 || cada > 3650 || cada !== Math.floor(cada)) msg = 'El nivel «' + n.nombre.trim() + '» necesita cada cuántos días se repite (entre 1 y 3650).';
       else if (ant && cada <= ant.cada) msg = 'El nivel «' + n.nombre.trim() + '» tiene que repetirse cada más días que «' + ant.nombre + '» (' + ant.cada + ').';
+      else if (numero(n.cada_horas) !== null && (numero(n.cada_horas) < 1 || numero(n.cada_horas) > 100000 || numero(n.cada_horas) !== Math.floor(numero(n.cada_horas)))) msg = 'El nivel «' + n.nombre.trim() + '»: las horas de uso tienen que ser un número entero (o dejalo vacío).';
       else if (aviso === null || aviso < 0 || aviso >= cada || aviso !== Math.floor(aviso)) msg = 'El nivel «' + n.nombre.trim() + '»: el aviso en amarillo tiene que ser menor que su período.';
       ant = { nombre: n.nombre.trim(), cada: cada };
     });
@@ -608,6 +609,7 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
           return '<button type="button" class="pill' + (n.responsable === r ? ' on' : '') + '" data-resp="' + r + '" data-i="' + i + '" aria-pressed="' + (n.responsable === r) + '">' + quienTxt(r) + '</button>';
         }).join('') + '</div></div>' +
         '<div class="campo"><label for="n' + i + '-d">Se repite cada (días)</label><input type="text" inputmode="numeric" id="n' + i + '-d" class="num w-chico" data-f="cada_dias" data-i="' + i + '" value="' + esc(n.cada_dias) + '"></div>' +
+        (CAT.horas_lista ? '<div class="campo"><label for="n' + i + '-h">O cada (horas de uso)</label><input type="text" inputmode="numeric" id="n' + i + '-h" class="num w-chico" data-f="cada_horas" data-i="' + i + '" value="' + esc(n.cada_horas) + '" placeholder="Opcional"><div class="nota">Vence lo que llegue primero: los días o las horas. Necesita una pregunta marcada como lectura del horómetro.</div></div>' : '') +
         '<div class="campo"><label for="n' + i + '-a">Pasa a amarillo (días antes)</label><input type="text" inputmode="numeric" id="n' + i + '-a" class="num w-chico" data-f="aviso_dias" data-i="' + i + '" value="' + esc(n.aviso_dias) + '">' +
         (k > 1 ? '<div class="nota">Más largo que el nivel anterior si lo hace una empresa: necesita tiempo para organizarse.</div>' : '') + '</div>' +
         '<div class="campo"><label for="n' + i + '-m">Duración estimada (min)</label><input type="text" inputmode="numeric" id="n' + i + '-m" class="num w-chico" data-f="duracion_min" data-i="' + i + '" value="' + esc(n.duracion_min) + '" placeholder="Opcional"></div>' +
@@ -669,7 +671,7 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
         tipo_id: S.tipo,
         niveles: F.niveles.map(function (n) {
           return { nivel: n.nivel, nombre: n.nombre.trim(), cada_dias: numero(n.cada_dias), responsable: n.responsable,
-            aviso_dias: numero(n.aviso_dias), duracion_min: numero(n.duracion_min), hereda: n.hereda,
+            cada_horas: numero(n.cada_horas), aviso_dias: numero(n.aviso_dias), duracion_min: numero(n.duracion_min), hereda: n.hereda,
             cubre: n.cubre === 'nada' ? 'nada' : (n.cubre === 'menores' ? '' : n.cubre) };
         }),
       }).then(function (r) { CAT = r; prepararNiveles(); toast('Plan guardado'); })
@@ -908,7 +910,7 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
     if (!campoId) {
       S.F = { campo_id: '', etiqueta: '', tipo_campo: 'si_no', unidad: '', requerido: true, autocompletable: true,
         ayuda: '', min: '', max: '', opciones: [], regla: { op: 'no' }, formula: '', repetir_por: '', original: '',
-        nivel: FILTRO_NIVEL || 1 };
+        nivel: FILTRO_NIVEL || 1, es_horometro: false };
       S.base = '';
       return;
     }
@@ -929,6 +931,7 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
       },
       formula: c.formula || '', repetir_por: c.repetir_por || '',
       nivel: c.nivel === 'todos' ? 'todos' : (Number(c.nivel) || 1),
+      es_horometro: !!c.es_horometro,
       original: (r.op === 'otra' || r.op === 'invalida') ? (c.cuando_avisa || '') : '',
     };
     S.base = JSON.stringify(S.F);
@@ -996,6 +999,7 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
     if (F.tipo_campo === 'numero' || calc) {
       h += '<div class="campo"><label for="f-unidad">Unidad</label><input type="text" id="f-unidad" class="num w-chico" maxlength="12" value="' + esc(F.unidad) + '" placeholder="V, °C, bar…"></div>';
     }
+    if (F.tipo_campo === 'numero' && CAT.horas_lista) h += '<button type="button" class="switch" id="f-horo" aria-pressed="' + !!F.es_horometro + '" title="Con esta lectura el sistema calcula cuántas horas por día trabaja el equipo"><span class="pista"></span>Es el horómetro</button>';
     if (!calc) h += '<button type="button" class="switch" id="f-req" aria-pressed="' + F.requerido + '"><span class="pista"></span>Obligatoria</button>';
     if (F.tipo_campo === 'si_no' || F.tipo_campo === 'opciones') {
       h += '<button type="button" class="switch" id="f-auto" aria-pressed="' + F.autocompletable + '"><span class="pista"></span>«Todo conforme» la precarga</button>';
@@ -1072,6 +1076,7 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
     function en(id, ev, fn) { var el = $(id); if (el) el.addEventListener(ev, fn); }
     en('f-etiqueta', 'input', function (e) { F.etiqueta = e.target.value; refrescar(); });
     en('f-unidad', 'input', function (e) { F.unidad = e.target.value; refrescar(); });
+    en('f-horo', 'click', function () { F.es_horometro = !F.es_horometro; pintarPanel(); });
     en('f-a', 'input', function (e) { F.regla.a = e.target.value; refrescar(); });
     en('f-b', 'input', function (e) { F.regla.b = e.target.value; refrescar(); });
     en('f-pct', 'input', function (e) { F.regla.pct = e.target.value; refrescar(); });
@@ -1099,7 +1104,7 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
         F.original = '';
         F.autocompletable = tc === 'si_no' || tc === 'opciones';
         if (tc === 'opciones' && F.opciones.length < 2) F.opciones = [{ v: '', t: 'Bueno', avisa: false }, { v: '', t: 'Malo', avisa: true }];
-        if (tc !== 'numero') { F.unidad = ''; F.min = ''; F.max = ''; }
+        if (tc !== 'numero') { F.unidad = ''; F.min = ''; F.max = ''; F.es_horometro = false; }
         pintarPanel();
       };
     });
@@ -1200,6 +1205,7 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
     };
     if (F.tipo_campo === 'texto' || F.tipo_campo === 'foto') cuerpo.regla = { op: 'nunca' };
     if (planDeTipo(S.tipo).length && CAT.niveles_lista) cuerpo.nivel = F.nivel;
+    if (CAT.horas_lista) cuerpo.es_horometro = F.tipo_campo === 'numero' && !!F.es_horometro;
     if (F.campo_id) cuerpo.campo_id = F.campo_id;
     S.ocupado = true;
     $('f-guardar').disabled = true;
@@ -1280,6 +1286,14 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
         '<span class="flechas"><button type="button" aria-label="Subir" data-amover="' + i + '" data-d="-1"' + (i === 0 || A.ocupado ? ' disabled' : '') + '>▲</button>' +
         '<button type="button" aria-label="Bajar" data-amover="' + i + '" data-d="1"' + (i === mias.length - 1 || A.ocupado ? ' disabled' : '') + '>▼</button></span></div>';
     }).join('') : '<div class="nota">Este tipo todavía no pide datos propios en el alta.</div>') + '</div>';
+    // la marca, la capacidad y las referencias del A/C eran preguntas fijas de la app: acá se vuelven editables
+    var sinEstandar = CAT.alta_lista && ['marca', 'capacidad'].some(function (id) {
+      return !mias.concat(ret).some(function (c) { return c.campo_id === id; });
+    });
+    if (sinEstandar) {
+      h += '<div class="aviso" style="margin-top:12px"><b>Marca y capacidad</b> se siguen pidiendo con las preguntas de siempre. ' +
+        'Si las agregás acá podés cambiarles el texto, la ayuda o si son obligatorias.' + '<div style="margin-top:8px"><button type="button" class="b chico" id="a-estandar">Agregar las preguntas de siempre</button></div></div>';
+    }
     if (ret.length) {
       h += '<details class="retiradas"><summary>Retirados (' + ret.length + ')</summary>' + ret.map(function (c) {
         return '<div class="ret"><span>' + esc(c.etiqueta) + '</span><button type="button" class="b chico" data-areactivar="' + esc(c.campo_id) + '">Volver a activar</button></div>';
@@ -1287,6 +1301,12 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
     }
     $('lista').innerHTML = h;
 
+    if ($('a-estandar')) $('a-estandar').onclick = function () {
+      $('a-estandar').disabled = true; $('a-estandar').textContent = 'Agregando…';
+      api('/admin/alta-estandar', { tipo_id: S.tipo }).then(function (r) {
+        CAT = r; toast(r.agregadas && r.agregadas.length ? 'Preguntas agregadas' : 'Ya estaban todas');
+      }).catch(function (e) { toast(e.message, true); }).finally(function () { pintarLado(); pintar(); });
+    };
     $('aNueva').onclick = function () {
       if (!seguirSiHayCambios()) return;
       A.campo = '__nueva'; prepararAlta(null); pintarAlta();
