@@ -162,6 +162,17 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
 .grid2 .ancho{grid-column:1/-1;}
 .ok{color:var(--verde);font-weight:700;font-size:14px;}
 .mal{color:var(--rojo);font-weight:700;font-size:14px;}
+.nvl{align-self:center;margin-left:auto;flex-shrink:0;border-radius:999px;padding:2px 8px;font-size:11.5px;font-weight:700;}
+.nvl.todos{background:var(--papel);color:var(--tinta2);}
+.nvl.n1{background:var(--azul-pal);color:#123E73;}
+.nvl.n2{background:var(--ambar-pal);color:var(--ambar-txt);}
+.chip.niv1{background:var(--azul-pal);color:#123E73;}
+.chip.niv2{background:var(--ambar-pal);color:var(--ambar-txt);}
+.nivel{padding:20px 22px;border-top:1px solid var(--linea2);display:flex;flex-direction:column;gap:18px;}
+.nivel-cab{display:flex;align-items:center;gap:12px;}
+.nivel-cab h4{margin:0;font-size:18px;}
+.nivel-cab .der{margin-left:auto;}
+.filtro-nivel{padding:0 18px 12px;}
 
 .vacio{padding:60px 30px;text-align:center;color:var(--tinta2);}
 .vacio h2{color:var(--tinta);margin:0 0 8px;}
@@ -293,6 +304,7 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
   function nombreTipo(id) { var t = tipoDe(id); return t ? (id === 'base_general' ? 'Bloque común' : t.nombre.replace(/^FUNCIÓN · /, '')) : id; }
   // una pregunta nueva cuenta como cambio recién cuando tiene algo escrito
   var hayCambios = function () {
+    if (S.modo === 'niveles') return !!(N.F && JSON.stringify(N.F) !== N.base);
     var alta = S.modo === 'alta';
     var F = alta ? A.F : S.F;
     if (!F) return false;
@@ -430,6 +442,7 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
     S.vista = 'tipo'; S.tipo = id; S.F = null; S.base = '';
     S.campo = campoId || null;
     A.campo = null; A.F = null; A.base = '';
+    N.F = null; N.base = ''; FILTRO_NIVEL = 0;
     if (campoId) { S.modo = 'preguntas'; prepararForm(campoId); }
     pintarLado();
     pintar();
@@ -453,7 +466,9 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
     } else {
       cab = '<div class="cab"><h2>' + esc(t.nombre) + ' <span class="chip mono">' + esc(t.prefijo_qr) + '</span>' +
         (t.activo ? '' : ' <span class="chip">retirado</span>') + '</h2><div class="chips">' +
-        '<span class="chip">cada ' + esc(t.periodicidad_default) + ' días</span>' +
+        (planDeTipo(t.tipo_id).length ? planDeTipo(t.tipo_id).map(function (n) {
+          return '<span class="chip niv' + (n.nivel === 1 ? '1' : '2') + '">' + esc(n.nombre) + ' · ' + (n.responsable === 'externo' ? 'empresa' : 'oficial') + ' · cada ' + n.cada_dias + ' días</span>';
+        }).join('') : '<span class="chip">cada ' + esc(t.periodicidad_default) + ' días</span>') +
         '<span class="chip">' + t.equipos + ' equipos</span>' +
         '<span class="chip">toma preguntas de: ' + esc(nombreTipo(t.hereda_de)) + '</span>' +
         (t.categoria ? '<span class="chip">correctivo → ' + esc(t.categoria + (t.subcategoria ? ' › ' + t.subcategoria : '')) + '</span>' : '') +
@@ -463,10 +478,211 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
       '<div class="dos"><section class="caja" id="lista"></section><section class="caja" id="panel"></section></div>';
     if ($('editarTipo')) $('editarTipo').onclick = function () { if (seguirSiHayCambios()) abrirTipoForm(t.tipo_id); };
     enlazarPestanas();
+    if (S.modo === 'niveles' && !t.bloque) return pintarNiveles();
     if (S.modo === 'alta' && !t.bloque) return pintarAlta();
     if (S.modo === 'auditoria' && !t.bloque) return pintarAuditoria();
     pintarLista();
     pintarPanel();
+  }
+
+  /* ════════════════ niveles de preventivo ════════════════
+     Un tipo puede tener varios niveles (mensual, mayor...), cada uno con su reloj, su
+     responsable y sus preguntas. Sin plan, el tipo es un único preventivo, como siempre.
+     El plan se guarda entero con «Guardar plan»; la pregunta dice en qué nivel aparece
+     (campo «Aparece en» del editor). Quién es la empresa de un equipo se elige en cada
+     equipo, no acá. */
+  var N = { F: null, base: '', ocupado: false };      // plan en edición
+  var FILTRO_NIVEL = 0;                                // 0 = todas las preguntas
+
+  function planDeTipo(id) {
+    var p = (CAT.planes || []).find(function (x) { return x.tipo_id === id; });
+    return p ? p.niveles : [];
+  }
+  function claseNivel(n) { return n === 1 ? 'n1' : 'n2'; }
+  function quienTxt(r) { return r === 'externo' ? 'Empresa externa' : 'Oficial de mantenimiento'; }
+  /** ¿Una pregunta de nivel `nv` aparece en el nivel `p`? Con «hereda», el nivel lleva también las de los menores. */
+  function aparece(nv, p) { return nv === 'todos' || (p.hereda ? Number(nv) <= p.nivel : Number(nv) === p.nivel); }
+  function preguntasDelNivel(tipoId, p) { return checklist(tipoId).filter(function (c) { return aparece(c.nivel, p); }); }
+  function etiquetaNivel(nv, plan) {
+    if (nv === 'todos') return ['todos', 'Todos'];
+    var p = plan.find(function (x) { return x.nivel === Number(nv); });
+    return [claseNivel(Number(nv)), p ? p.nombre : 'Nivel ' + nv + ' (no existe)'];
+  }
+
+  function planAForm(plan) {
+    return {
+      niveles: plan.map(function (n) {
+        return {
+          nivel: n.nivel, nombre: n.nombre, cada_dias: String(n.cada_dias), responsable: n.responsable,
+          aviso_dias: String(n.aviso_dias), duracion_min: n.duracion_min == null ? '' : String(n.duracion_min),
+          cubre: n.cubre === null ? 'menores' : (n.cubre.length ? n.cubre : 'nada'), hereda: !!n.hereda,
+        };
+      }),
+    };
+  }
+  function nivelNuevo(F, t) {
+    var k = F.niveles.length + 1;
+    if (k === 1) {
+      return { nivel: 1, nombre: 'Mensual', cada_dias: String(t.periodicidad_default || 30), responsable: 'oficial',
+        aviso_dias: '7', duracion_min: '', cubre: 'menores', hereda: false };
+    }
+    var ant = Number(F.niveles[k - 2].cada_dias) || 30;
+    var cada = Math.min(3650, ant < 365 ? 365 : ant * 2);
+    return { nivel: k, nombre: k === 2 ? 'Mayor' : 'Nivel ' + k, cada_dias: String(cada), responsable: 'externo',
+      aviso_dias: String(Math.min(45, cada - 1)), duracion_min: '', cubre: 'menores', hereda: false };
+  }
+
+  /** Qué le falta al plan para poder guardarse; '' si está bien. */
+  function errorPlan(F) {
+    var ant = null, msg = '';
+    F.niveles.forEach(function (n, i) {
+      if (msg) return;
+      var cada = numero(n.cada_dias), aviso = numero(n.aviso_dias);
+      if (!n.nombre.trim()) msg = 'Falta el nombre del nivel ' + (i + 1) + '.';
+      else if (cada === null || cada < 1 || cada > 3650 || cada !== Math.floor(cada)) msg = 'El nivel «' + n.nombre.trim() + '» necesita cada cuántos días se repite (entre 1 y 3650).';
+      else if (ant && cada <= ant.cada) msg = 'El nivel «' + n.nombre.trim() + '» tiene que repetirse cada más días que «' + ant.nombre + '» (' + ant.cada + ').';
+      else if (aviso === null || aviso < 0 || aviso >= cada || aviso !== Math.floor(aviso)) msg = 'El nivel «' + n.nombre.trim() + '»: el aviso en amarillo tiene que ser menor que su período.';
+      ant = { nombre: n.nombre.trim(), cada: cada };
+    });
+    return msg;
+  }
+
+  /** «Qué ve cada persona»: una fila por nivel, con cuántas preguntas lleva. */
+  function quienVe(F) {
+    var h = '';
+    F.niveles.forEach(function (n, i) {
+      var cuantas = preguntasDelNivel(S.tipo, { nivel: n.nivel, hereda: n.hereda }).length;
+      var cubre = n.nivel === 1 || n.cubre === 'nada' ? '' : ' Al registrarlo, ' + (F.niveles.length > 2 ? 'los niveles menores quedan cumplidos.' : 'el nivel «' + (F.niveles[0].nombre.trim() || 1) + '» queda cumplido.');
+      h += '<div class="aud-fila"' + (i === 0 ? ' style="border-top:0"' : '') + '><span class="et">' + esc(quienTxt(n.responsable)) + ' · ' + esc(n.nombre.trim() || 'Sin nombre') +
+        '<span class="sb" style="display:block;font-weight:400;font-size:12.5px;color:var(--tinta3)">Cada ' + esc(n.cada_dias) + ' días.' + esc(cubre) + '</span></span>' +
+        '<span class="chip">' + cuantas + ' preguntas' + (numero(n.duracion_min) ? ' · unos ' + esc(n.duracion_min) + ' min' : '') + '</span></div>';
+    });
+    return h;
+  }
+
+  function prepararNiveles() {
+    var plan = planDeTipo(S.tipo);
+    N.F = plan.length ? planAForm(plan) : null;
+    N.base = N.F ? JSON.stringify(N.F) : '';
+  }
+
+  function pintarNiveles() {
+    var t = tipoDe(S.tipo);
+    var cont = $('niv-cont') || $('lista').parentNode;
+    cont.id = 'niv-cont';
+    cont.className = '';
+    cont.style.padding = '4px 22px 40px';
+    var guardado = planDeTipo(S.tipo);
+    if (N.F === null && N.base === '' && guardado.length) prepararNiveles();
+
+    if (!N.F) {
+      cont.innerHTML = '<section class="caja"><div class="caja-cab"><h3>Plan de niveles</h3></div>' +
+        '<div style="padding:16px 22px 22px;display:flex;flex-direction:column;gap:14px">' +
+        '<div class="nota-precarga">Hoy este tipo tiene <b>un solo preventivo</b>, cada ' + esc(t.periodicidad_default || '—') + ' días. ' +
+        'Con un plan de niveles puede tener, por ejemplo, un mensual que hace el oficial y un mayor que hace una empresa. ' +
+        'Hacer el mayor deja cumplido el mensual.</div>' +
+        '<div><button type="button" class="b pri" id="n-crear">Crear plan de niveles</button></div></div></section>';
+      $('n-crear').onclick = function () {
+        N.F = { niveles: [] };
+        N.F.niveles.push(nivelNuevo(N.F, t));
+        N.F.niveles.push(nivelNuevo(N.F, t));
+        N.base = '';
+        pintarNiveles();
+      };
+      return;
+    }
+
+    var F = N.F;
+    var err = errorPlan(F);
+    var h = '<section class="caja"><div class="caja-cab"><h3>Plan de niveles</h3>' +
+      '<button type="button" class="b chico" id="n-agregar"' + (F.niveles.length >= 6 || N.ocupado ? ' disabled' : '') + '>+ Agregar nivel</button></div>' +
+      '<div style="padding:14px 22px 16px"><div class="nota-precarga">Cada nivel tiene su propio reloj. Al registrar un nivel mayor, los niveles que deja cumplidos ' +
+      'empiezan a contar de nuevo. La empresa de cada equipo se elige al darlo de alta.</div></div>';
+    F.niveles.forEach(function (n, i) {
+      var k = n.nivel, ultimo = i === F.niveles.length - 1 && F.niveles.length > 1;
+      h += '<div class="nivel"><div class="nivel-cab"><span class="chip niv' + (k === 1 ? '1' : '2') + '" style="font-weight:700">Nivel ' + k + '</span>' +
+        '<h4>' + esc(n.nombre.trim() || 'Sin nombre') + '</h4>' +
+        (ultimo ? '<button type="button" class="b chico peligro der" data-quitar="' + i + '">Quitar nivel</button>' : '') + '</div><div class="grid2">' +
+        '<div class="campo"><label for="n' + i + '-nom">Nombre del nivel</label><input type="text" id="n' + i + '-nom" maxlength="30" data-f="nombre" data-i="' + i + '" value="' + esc(n.nombre) + '"></div>' +
+        '<div class="campo"><span class="lbl">Quién lo hace</span><div class="pills">' + ['oficial', 'externo'].map(function (r) {
+          return '<button type="button" class="pill' + (n.responsable === r ? ' on' : '') + '" data-resp="' + r + '" data-i="' + i + '" aria-pressed="' + (n.responsable === r) + '">' + quienTxt(r) + '</button>';
+        }).join('') + '</div></div>' +
+        '<div class="campo"><label for="n' + i + '-d">Se repite cada (días)</label><input type="text" inputmode="numeric" id="n' + i + '-d" class="num w-chico" data-f="cada_dias" data-i="' + i + '" value="' + esc(n.cada_dias) + '"></div>' +
+        '<div class="campo"><label for="n' + i + '-a">Pasa a amarillo (días antes)</label><input type="text" inputmode="numeric" id="n' + i + '-a" class="num w-chico" data-f="aviso_dias" data-i="' + i + '" value="' + esc(n.aviso_dias) + '">' +
+        (k > 1 ? '<div class="nota">Más largo que el nivel anterior si lo hace una empresa: necesita tiempo para organizarse.</div>' : '') + '</div>' +
+        '<div class="campo"><label for="n' + i + '-m">Duración estimada (min)</label><input type="text" inputmode="numeric" id="n' + i + '-m" class="num w-chico" data-f="duracion_min" data-i="' + i + '" value="' + esc(n.duracion_min) + '" placeholder="Opcional"></div>' +
+        '<div class="campo"><span class="lbl">Deja cumplido</span>' + (k === 1 ? '<div class="nota" style="margin-top:0">Nada: es el nivel más bajo.</div>' :
+          '<div class="pills">' + [['menores', 'Los niveles menores'], ['nada', 'Nada']].map(function (x) {
+            var on = x[0] === 'nada' ? n.cubre === 'nada' : n.cubre !== 'nada';
+            return '<button type="button" class="pill' + (on ? ' on' : '') + '" data-cubre="' + x[0] + '" data-i="' + i + '" aria-pressed="' + on + '">' + x[1] + '</button>';
+          }).join('') + '</div>') + '</div>' +
+        (k > 1 ? '<div class="campo ancho"><span class="lbl">Preguntas que lleva</span><div class="pills">' + [[false, 'Solo las suyas'], [true, 'Las suyas y las de los niveles anteriores']].map(function (x) {
+          return '<button type="button" class="pill' + (n.hereda === x[0] ? ' on' : '') + '" data-hereda="' + x[0] + '" data-i="' + i + '" aria-pressed="' + (n.hereda === x[0]) + '">' + x[1] + '</button>';
+        }).join('') + '</div></div>' : '') +
+        '</div></div>';
+    });
+    h += '<div style="padding:0 22px 20px;display:flex;flex-direction:column;gap:12px;border-top:1px solid var(--linea2)">' +
+      '<div id="n-err">' + (err ? '<div class="aviso amb" style="margin-top:16px">' + esc(err) + '</div>' : '') + '</div>' +
+      (!CAT.niveles_lista ? '<div class="aviso amb" style="margin-top:16px"><b>Falta una columna.</b> Para repartir preguntas entre niveles, ejecutá <code class="num">prepararNiveles</code> en el Apps Script (agrega la columna <code class="num">nivel</code> a la hoja <b>tipos_campos</b>) y recargá esta página.</div>' : '') +
+      (t.equipos ? '<div class="nota" style="margin-top:' + (err ? '0' : '16px') + '">El plan rige para los ' + t.equipos + ' equipos de este tipo. Un nivel nuevo empieza a contar desde hoy, con las primeras fechas repartidas para que no venzan todos juntos.</div>' : '') +
+      '<div class="acciones"><button type="button" class="b pri" id="n-guardar"' + (err || N.ocupado || N.base === JSON.stringify(F) ? ' disabled' : '') + '>Guardar plan</button>' +
+      '<button type="button" class="b" id="n-descartar">Descartar cambios</button>' +
+      (guardado.length ? '<button type="button" class="b peligro der" id="n-quitarplan">Volver a un solo preventivo</button>' : '') + '</div></div></section>';
+
+    h += '<section class="caja" style="margin-top:18px"><div class="caja-cab"><h3>Qué ve cada persona</h3></div><div id="n-quien">' + quienVe(F) + '</div></section>';
+    cont.innerHTML = h;
+
+    var P = cont;
+    Array.prototype.forEach.call(P.querySelectorAll('input[data-f]'), function (inp) {
+      inp.addEventListener('input', function () {
+        F.niveles[Number(inp.getAttribute('data-i'))][inp.getAttribute('data-f')] = inp.value;
+        var g = $('n-guardar'), e = errorPlan(F);
+        if (g) g.disabled = !!e || N.ocupado || N.base === JSON.stringify(F);
+        $('n-err').innerHTML = e ? '<div class="aviso amb" style="margin-top:16px">' + esc(e) + '</div>' : '';
+        $('n-quien').innerHTML = quienVe(F);
+        if (inp.getAttribute('data-f') === 'nombre') P.querySelectorAll('.nivel-cab h4')[Number(inp.getAttribute('data-i'))].textContent = inp.value.trim() || 'Sin nombre';
+      });
+    });
+    Array.prototype.forEach.call(P.querySelectorAll('[data-resp]'), function (b) {
+      b.onclick = function () { F.niveles[Number(b.getAttribute('data-i'))].responsable = b.getAttribute('data-resp'); pintarNiveles(); };
+    });
+    Array.prototype.forEach.call(P.querySelectorAll('[data-cubre]'), function (b) {
+      b.onclick = function () { F.niveles[Number(b.getAttribute('data-i'))].cubre = b.getAttribute('data-cubre'); pintarNiveles(); };
+    });
+    Array.prototype.forEach.call(P.querySelectorAll('[data-hereda]'), function (b) {
+      b.onclick = function () { F.niveles[Number(b.getAttribute('data-i'))].hereda = b.getAttribute('data-hereda') === 'true'; pintarNiveles(); };
+    });
+    Array.prototype.forEach.call(P.querySelectorAll('[data-quitar]'), function (b) {
+      b.onclick = function () {
+        var n = F.niveles[Number(b.getAttribute('data-quitar'))];
+        var usan = checklist(S.tipo).filter(function (c) { return c.nivel === n.nivel; }).length;
+        if (usan) { toast('Hay ' + usan + ' preguntas en el nivel «' + n.nombre.trim() + '». Pasalas a otro nivel antes de quitarlo.', true); return; }
+        F.niveles.pop(); pintarNiveles();
+      };
+    });
+    $('n-agregar').onclick = function () { F.niveles.push(nivelNuevo(F, t)); pintarNiveles(); };
+    $('n-descartar').onclick = function () { prepararNiveles(); pintarNiveles(); };
+    $('n-guardar').onclick = function () {
+      if (errorPlan(F) || N.ocupado) return;
+      N.ocupado = true; $('n-guardar').disabled = true; $('n-guardar').textContent = 'Guardando…';
+      api('/admin/plan', {
+        tipo_id: S.tipo,
+        niveles: F.niveles.map(function (n) {
+          return { nivel: n.nivel, nombre: n.nombre.trim(), cada_dias: numero(n.cada_dias), responsable: n.responsable,
+            aviso_dias: numero(n.aviso_dias), duracion_min: numero(n.duracion_min), hereda: n.hereda,
+            cubre: n.cubre === 'nada' ? 'nada' : (n.cubre === 'menores' ? '' : n.cubre) };
+        }),
+      }).then(function (r) { CAT = r; prepararNiveles(); toast('Plan guardado'); })
+        .catch(function (e) { toast(e.message, true); })
+        .finally(function () { N.ocupado = false; pintarLado(); pintar(); });
+    };
+    if ($('n-quitarplan')) $('n-quitarplan').onclick = function () {
+      if (!confirm('El tipo vuelve a tener un solo preventivo. Los preventivos ya hechos no se tocan. ¿Seguir?')) return;
+      N.ocupado = true;
+      api('/admin/plan', { tipo_id: S.tipo, niveles: [] }).then(function (r) { CAT = r; N.F = null; N.base = ''; toast('Plan quitado'); })
+        .catch(function (e) { toast(e.message, true); })
+        .finally(function () { N.ocupado = false; pintarLado(); pintar(); });
+    };
   }
 
   /* ════════════════ auditoría de un tipo ════════════════
@@ -579,7 +795,7 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
 
   /** Un tipo tiene dos cosas que configurar: el checklist de cada visita y los datos del alta. */
   function pestanas() {
-    return '<div class="pills" style="margin:14px 0">' + [['preguntas', 'Preguntas del preventivo'], ['alta', 'Datos del alta'], ['auditoria', 'Auditoría']].map(function (x) {
+    return '<div class="pills" style="margin:14px 0">' + [['niveles', 'Plan de niveles'], ['preguntas', 'Preguntas del preventivo'], ['alta', 'Datos del alta'], ['auditoria', 'Auditoría']].map(function (x) {
       return '<button type="button" class="pill' + (S.modo === x[0] ? ' on' : '') + '" data-modo="' + x[0] + '" aria-pressed="' + (S.modo === x[0]) + '">' + x[1] + '</button>';
     }).join('') + '</div>';
   }
@@ -590,25 +806,39 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
         if (m === S.modo || !seguirSiHayCambios()) return;
         S.modo = m; S.campo = null; S.F = null; S.base = '';
         A.campo = null; A.F = null; A.base = '';
+        N.F = null; N.base = '';
         pintar();
       };
     });
   }
 
   function pintarLista() {
-    var items = checklist(S.tipo);
-    var mias = items.filter(function (c) { return c.tipo_id === S.tipo; });
+    var todas = checklist(S.tipo);
+    var mias = todas.filter(function (c) { return c.tipo_id === S.tipo; });
+    var plan = planDeTipo(S.tipo);
+    var nivelFiltro = plan.find(function (n) { return n.nivel === FILTRO_NIVEL; });
+    if (!nivelFiltro) FILTRO_NIVEL = 0;
+    var items = nivelFiltro ? todas.filter(function (c) { return aparece(c.nivel, nivelFiltro); }) : todas;
     var html = '<div class="caja-cab"><h3>Preguntas (' + items.length + ')</h3>' +
-      '<button type="button" class="b pri chico" id="nuevaPregunta">+ Nueva</button></div><div class="lista">';
+      '<button type="button" class="b pri chico" id="nuevaPregunta">+ Nueva</button></div>';
+    if (plan.length) {
+      html += '<div class="filtro-nivel"><div class="pills" role="group" aria-label="Filtrar por nivel">' +
+        [[0, 'Todas']].concat(plan.map(function (n) { return [n.nivel, n.nombre]; })).map(function (x) {
+          return '<button type="button" class="pill' + (FILTRO_NIVEL === x[0] ? ' on' : '') + '" data-filtro="' + x[0] + '" aria-pressed="' + (FILTRO_NIVEL === x[0]) + '">' + esc(x[1]) + '</button>';
+        }).join('') + '</div></div>';
+    }
+    html += '<div class="lista">';
     items.forEach(function (c, i) {
       var mia = c.tipo_id === S.tipo;
       var k = mias.indexOf(c);
       var avisa = c.regla && c.regla.op !== 'nunca';
+      var nv = plan.length ? etiquetaNivel(c.nivel, plan) : null;
       html += '<div class="pr' + (mia ? '' : ' her') + (S.campo === c.campo_id ? ' on' : '') + '">' +
         '<button type="button" class="sel" data-campo="' + esc(c.campo_id) + '"><span class="n">' + (i + 1) + '</span><span>' +
         '<span class="et">' + esc(c.etiqueta) + '</span>' +
         '<span class="sb' + (avisa ? ' avisa' : '') + '">' + esc(NOMBRE_RESP[c.tipo_campo] || c.tipo_campo) + ' · ' + esc(reglaCorta(c)) +
-        (mia ? '' : ' · de ' + esc(nombreTipo(c.tipo_id))) + '</span></span></button>' +
+        (mia ? '' : ' · de ' + esc(nombreTipo(c.tipo_id))) + '</span></span>' +
+        (nv ? '<span class="nvl ' + nv[0] + '">' + esc(nv[1]) + '</span>' : '') + '</button>' +
         (mia ? '<span class="flechas"><button type="button" aria-label="Subir" data-mover="' + k + '" data-d="-1"' + (k === 0 || S.ocupado ? ' disabled' : '') + '>▲</button>' +
           '<button type="button" aria-label="Bajar" data-mover="' + k + '" data-d="1"' + (k === mias.length - 1 || S.ocupado ? ' disabled' : '') + '>▼</button></span>' : '') +
         '</div>';
@@ -623,6 +853,9 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
     }
     $('lista').innerHTML = html;
 
+    Array.prototype.forEach.call($('lista').querySelectorAll('[data-filtro]'), function (b) {
+      b.onclick = function () { FILTRO_NIVEL = Number(b.getAttribute('data-filtro')); pintarLista(); };
+    });
     $('nuevaPregunta').onclick = function () {
       if (!seguirSiHayCambios()) return;
       S.campo = '__nueva'; prepararForm(null); pintarLista(); pintarPanel();
@@ -674,7 +907,8 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
     S.prueba = { v: '', ref: '' };
     if (!campoId) {
       S.F = { campo_id: '', etiqueta: '', tipo_campo: 'si_no', unidad: '', requerido: true, autocompletable: true,
-        ayuda: '', min: '', max: '', opciones: [], regla: { op: 'no' }, formula: '', repetir_por: '', original: '' };
+        ayuda: '', min: '', max: '', opciones: [], regla: { op: 'no' }, formula: '', repetir_por: '', original: '',
+        nivel: FILTRO_NIVEL || 1 };
       S.base = '';
       return;
     }
@@ -694,6 +928,7 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
         ref: r.ref || 'ref_consumo_a', pct: r.pct == null ? '' : String(r.pct),
       },
       formula: c.formula || '', repetir_por: c.repetir_por || '',
+      nivel: c.nivel === 'todos' ? 'todos' : (Number(c.nivel) || 1),
       original: (r.op === 'otra' || r.op === 'invalida') ? (c.cuando_avisa || '') : '',
     };
     S.base = JSON.stringify(S.F);
@@ -744,6 +979,18 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
     }
     if (F.repetir_por) h += '<div class="nota">Se repite una vez por cada compresor del equipo.</div>';
     h += '</div>';
+
+    // --- en qué nivel de preventivo aparece (solo si el tipo tiene plan)
+    var planT = planDeTipo(S.tipo);
+    if (planT.length) {
+      var donde = planT.filter(function (n) { return aparece(F.nivel, n); }).map(function (n) { return n.nombre; });
+      h += '<div class="campo"><span class="lbl">Aparece en</span><div class="pills">' +
+        [['todos', 'Todos los niveles']].concat(planT.map(function (n) { return [n.nivel, 'Solo en el ' + n.nombre]; })).map(function (x) {
+          return '<button type="button" class="pill' + (F.nivel === x[0] ? ' on' : '') + '" data-nivel="' + x[0] + '"' + (CAT.niveles_lista ? '' : ' disabled') + ' aria-pressed="' + (F.nivel === x[0]) + '">' + esc(x[1]) + '</button>';
+        }).join('') + '</div><div class="nota">' +
+        (CAT.niveles_lista ? 'La responde: ' + esc(donde.join(' y ') || 'nadie (el nivel no existe)') + '. Cada nivel se configura en «Plan de niveles».'
+          : 'Falta la columna «nivel» en la hoja tipos_campos: ejecutá prepararNiveles en el Apps Script y recargá.') + '</div></div>';
+    }
 
     h += '<div class="fila">';
     if (F.tipo_campo === 'numero' || calc) {
@@ -856,6 +1103,9 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
         pintarPanel();
       };
     });
+    Array.prototype.forEach.call(P.querySelectorAll('[data-nivel]'), function (b) {
+      b.onclick = function () { var v = b.getAttribute('data-nivel'); F.nivel = v === 'todos' ? 'todos' : Number(v); pintarPanel(); };
+    });
     Array.prototype.forEach.call(P.querySelectorAll('[data-op]'), function (b) {
       b.onclick = function () { F.regla.op = b.getAttribute('data-op'); pintarPanel(); var a = $('f-a') || $('f-pct'); if (a) a.focus(); };
     });
@@ -919,8 +1169,21 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
     }
     $('d-previa').innerHTML = q;
     var lista = checklist(S.tipo);
-    var pos = lista.findIndex(function (c) { return c.campo_id === F.campo_id; });
-    $('d-pos').textContent = 'Pregunta ' + (pos >= 0 ? pos + 1 : lista.filter(function (c) { return c.orden < 900; }).length + 1) + ' de ' + (lista.length + (pos >= 0 ? 0 : 1));
+    var planP = planDeTipo(S.tipo);
+    if (planP.length) {
+      // el celular muestra el checklist del nivel de esta pregunta (con lo que se está editando)
+      var nv = F.nivel === 'todos' ? (planP.find(function (n) { return n.nivel === FILTRO_NIVEL; }) || planP[0]) : planP.find(function (n) { return n.nivel === F.nivel; });
+      if (!nv) { $('d-pos').textContent = 'El nivel de esta pregunta no existe'; }
+      else {
+        var propia = CAT.campos.find(function (c) { return c.tipo_id === S.tipo && c.campo_id === F.campo_id; });
+        var ordenF = propia ? propia.orden : 900;
+        var otras = preguntasDelNivel(S.tipo, nv).filter(function (c) { return c.campo_id !== F.campo_id; });
+        $('d-pos').textContent = 'Pregunta ' + (otras.filter(function (c) { return c.orden < ordenF; }).length + 1) + ' de ' + (otras.length + 1) + ' · ' + nv.nombre;
+      }
+    } else {
+      var pos = lista.findIndex(function (c) { return c.campo_id === F.campo_id; });
+      $('d-pos').textContent = 'Pregunta ' + (pos >= 0 ? pos + 1 : lista.filter(function (c) { return c.orden < 900; }).length + 1) + ' de ' + (lista.length + (pos >= 0 ? 0 : 1));
+    }
 
     var g = $('f-guardar');
     g.disabled = !!A.error || S.ocupado || !hayCambios();
@@ -936,6 +1199,7 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
       regla: { op: F.regla.op, a: F.regla.a, b: F.regla.b, ref: F.regla.ref, pct: F.regla.pct },
     };
     if (F.tipo_campo === 'texto' || F.tipo_campo === 'foto') cuerpo.regla = { op: 'nunca' };
+    if (planDeTipo(S.tipo).length && CAT.niveles_lista) cuerpo.nivel = F.nivel;
     if (F.campo_id) cuerpo.campo_id = F.campo_id;
     S.ocupado = true;
     $('f-guardar').disabled = true;
