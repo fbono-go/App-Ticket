@@ -100,6 +100,7 @@
   let checklistActual = [];
   let AUD = null;             // auditoría en curso (solo oficiales): { id }
   let AUDS = [];              // auditorías pendientes de la institución activa
+  let TAREAS = { prev: 0, aud: 0 };   // lo que el oficial tiene para hacer: es lo que cuenta el globito rojo
   let respuestas = {};
   let fotos = [];
   let enviarCorrectivo = true;    // la app recomienda; el técnico puede desactivarlo
@@ -323,8 +324,12 @@
   function pintarBadge() {
     const b = $('prev-badge');
     if (!b) return;
-    b.textContent = COLA.length;
-    b.style.display = COLA.length ? 'inline-block' : 'none';
+    // El oficial ve cuántas tareas tiene (preventivos vencidos o por vencer y
+    // auditorías). El proveedor, cuántos registros le faltan enviar: el aviso de
+    // «sin enviar» queda igual en la pantalla de inicio para los dos.
+    const n = ROL === 'oficial' ? TAREAS.prev + TAREAS.aud : COLA.length;
+    b.textContent = n > 99 ? '99+' : n;
+    b.style.display = n ? 'inline-block' : 'none';
     const av = $('prev-aviso-cola');
     if (av) {
       av.style.display = COLA.length ? 'block' : 'none';
@@ -809,6 +814,8 @@
         { timeout: 15000 });
       AUDS = r.auditorias || [];
     } catch (e) { /* sin señal o módulo apagado: se sigue con lo que haya */ }
+    TAREAS.aud = AUDS.length;
+    pintarBadge();
     return AUDS;
   }
 
@@ -916,6 +923,8 @@
       if (VENC && VENC.instId !== instId) { filtroLugar = ''; filtroEst = ''; }
       if (filtroLugar && !lugares.some((l) => l.nombre === filtroLugar)) filtroLugar = '';
       VENC = { r, lista, lugares, instId };
+      TAREAS.prev = lista.filter((e) => e._est !== 'verde').length;
+      pintarBadge();
       pintarVencimientos();
     } catch (e) {
       c.innerHTML = `<div class="prev-hint">No se pudieron cargar los vencimientos${
@@ -3243,6 +3252,23 @@
     renderInicio();
   }
 
+  /**
+   * Pone al día el globito sin abrir la pestaña: al arrancar, al volver a la app y
+   * cada tanto. Pide lo mismo que la pantalla de inicio (semáforo y auditorías).
+   */
+  async function actualizarTareas() {
+    if (ROL !== 'oficial' || !cfg.institucion || !navigator.onLine) return;
+    try {
+      const [r] = await Promise.all([
+        api('/semaforo?institucion=' + encodeURIComponent(cfg.institucion) +
+            '&responsable=' + encodeURIComponent(FILTRO()), { timeout: 15000 }),
+        cargarAuditorias(cfg.institucion),
+      ]);
+      TAREAS.prev = (r.atencion || []).filter((e) => estadoEquipo(e) !== 'verde').length;
+      pintarBadge();
+    } catch (e) { /* sin señal: queda el último número */ }
+  }
+
   /* ── API pública (la usan los onclick del HTML) ─────────────────────── */
   window.PREV = {
     inicio, escanear, cargarManual, cambiarInstitucion, guardarTecnico,
@@ -3276,11 +3302,15 @@
       try { await cargarInventario(cfg.institucion, false); } catch (e) {}
     }
     if (COLA.length) sincronizar(true);
+    actualizarTareas();
+    setInterval(() => { if (document.visibilityState === 'visible') actualizarTareas(); }, 5 * 60 * 1000);
   }
 
   window.addEventListener('online', () => sincronizar(true));
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && COLA.length) sincronizar(true);
+    if (document.visibilityState !== 'visible') return;
+    if (COLA.length) sincronizar(true);
+    actualizarTareas();
   });
 
   if (document.readyState === 'loading') {

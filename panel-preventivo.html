@@ -285,6 +285,7 @@ td.num{font-family:var(--mono);text-align:right;}
       <button class="pest" data-v="v-equipo" type="button">Buscar equipo</button>
       <button class="pest" data-v="v-empresas" type="button">Empresas</button>
       <button class="pest" data-v="v-auditoria" type="button">Auditoría <span class="n" id="n-aud" style="display:none">0</span></button>
+      <button class="pest" data-v="v-calificacion" type="button">Calificación</button>
     </div>
   </div>
 </div>
@@ -390,8 +391,15 @@ td.num{font-family:var(--mono);text-align:right;}
     <h2>Auditoría de preventivos</h2>
     <p class="sub">Los oficiales verifican en el equipo una muestra de lo que hicieron los proveedores,
       sin ver lo que ellos cargaron. Qué se audita se define en Checklists, por tipo de equipo y por
-      pregunta. Acá se ve cómo viene cada proveedor y cuántas auditorías llegan por semana.</p>
+      pregunta. Acá se ve cuáles están activas, cuántas se fueron haciendo y cuántas llegan por semana. La nota de cada proveedor está en la pestaña Calificación.</p>
     <div id="aud-cuerpo"><div class="cargando">Cargando…</div></div>
+  </section>
+
+  <section class="vista" id="v-calificacion">
+    <h2>Calificación de proveedores</h2>
+    <p class="sub">Acá se define cómo se califica a cada proveedor (auditorías de los oficiales, tiempo de resolución de tickets y
+      preventivos vencidos) y se ve la nota de todos. La forma de calificar es la misma para todas las instituciones.</p>
+    <div id="cal-cuerpo"><div class="cargando">Cargando…</div></div>
   </section>
 
   <div class="pie" id="pie"></div>
@@ -1383,30 +1391,40 @@ td.num{font-family:var(--mono);text-align:right;}
       '<div><b>' + r.pendientes + '</b><span>esperando a un oficial</span></div>' +
       '<div><b>' + r.en_cola + '</b><span>en cola para liberar</span></div></div>';
 
-    // proveedores
-    var provs = r.proveedores || [];
-    html += '<h3>Cómo viene cada proveedor</h3>';
-    if (!provs.length) {
-      html += '<div class="vacio">Todavía no hay proveedores con auditoría activa. Activala en Checklists, en la pestaña Auditoría de un tipo de equipo.</div>';
+    // activas: lo que está para hacer o esperando turno
+    var act = r.activas || [];
+    var NOMBRE_MOTIVO = { criticidad: 'Equipo crítico', sospecha: 'Señal rara', azar: 'Al azar' };
+    html += '<h3>Activas' + (act.length ? ' (' + act.length + ')' : '') + '</h3>';
+    if (!act.length) {
+      html += '<div class="aviso ok"><b>No hay auditorías activas</b>Se generan cuando un proveedor termina un preventivo de un tipo que se audita.</div>';
     } else {
-      html += '<div class="tabla-env"><table><thead><tr><th>Proveedor</th><th>Calificación</th><th>Auditorías (últimos ' + r.config.ventana_dias + ' días)</th>' +
-        '<th>Resultado</th><th>Falsos conformes</th><th>Pendientes</th></tr></thead><tbody>' +
-        provs.map(function (p) {
-          var tot = p.realizadas || 0;
-          var pc = function (x) { return tot ? Math.round(x / tot * 100) : 0; };
-          return '<tr><td><b>' + esc(mayus(p.proveedor)) + '</b></td>' +
-            '<td><span class="nota ' + esc(p.nivel) + '">' + (p.calificacion === null ? '—' : p.calificacion) + '</span> ' +
-            '<small style="color:var(--tinta3)">' + esc(NOMBRE_NIVEL[p.nivel]) +
-            (p.nivel === 'sin_datos' ? ' (mínimo ' + r.config.min_calificacion + ')' : '') + '</small></td>' +
-            '<td class="num">' + tot + '</td>' +
-            '<td>' + (tot ? '<div class="barra"><i class="v" style="width:' + pc(p.conformes) + '%"></i><i class="y" style="width:' + pc(p.observaciones) +
-              '%"></i><i class="r" style="width:' + pc(p.no_conformes) + '%"></i></div><small style="color:var(--tinta3)">' +
-              p.conformes + ' conformes · ' + p.observaciones + ' obs. · ' + p.no_conformes + ' no conformes</small>' : '<small style="color:var(--tinta3)">sin auditorías</small>') + '</td>' +
-            '<td class="num">' + p.falsos_conformes + '</td>' +
-            '<td class="num">' + p.pendientes + (p.vencidas ? ' <small style="color:var(--rojo)">(' + p.vencidas + ' vencidas)</small>' : '') + '</td></tr>';
-        }).join('') + '</tbody></table></div>' +
-        '<p class="sub" style="margin-top:10px">La calificación es el porcentaje de conformes, donde una observación cuenta la mitad. ' +
-        'Un <b>falso conforme</b> es algo que el oficial midió fuera de regla y el proveedor no había reportado: es lo más serio.</p>';
+      html += '<div class="tabla-env"><table><thead><tr><th>Estado</th><th>Equipo</th><th>Proveedor</th><th>Motivo</th><th>Preventivo del</th><th>Vence</th></tr></thead><tbody>' +
+        act.map(function (a) {
+          var enCola = a.estado === 'en_cola';
+          var vence = enCola ? '<small style="color:var(--tinta3)">espera cupo</small>'
+            : a.dias === null ? '—'
+            : a.dias < 0 ? '<span style="color:var(--rojo);font-weight:700">vencida hace ' + (-a.dias) + (a.dias === -1 ? ' día' : ' días') + '</span>'
+            : a.dias === 0 ? '<b>hoy</b>' : 'en ' + a.dias + (a.dias === 1 ? ' día' : ' días');
+          return '<tr><td><span class="chip-res ' + (enCola ? '' : 'observacion') + '">' + (enCola ? 'En cola' : 'Con un oficial') + '</span></td>' +
+            '<td><span class="mono">' + esc(a.equipo_id) + '</span><br><small style="color:var(--tinta3)">' + esc(a.equipo_referencia) + '</small></td>' +
+            '<td>' + esc(mayus(a.proveedor)) + '</td><td>' + esc(NOMBRE_MOTIVO[a.motivo] || a.motivo) + '</td>' +
+            '<td>' + esc(a.fecha_preventivo) + '</td><td>' + vence + '</td></tr>';
+        }).join('') + '</tbody></table></div>';
+    }
+
+    // hechas: el total y el ritmo de las últimas semanas
+    var hh = r.hechas || { total: {}, semanas: [] };
+    var T = hh.total;
+    html += '<h3>Hechas · ' + (T.hechas || 0) + ' en total</h3>';
+    if (!T.hechas) {
+      html += '<div class="vacio">Todavía no se hizo ninguna auditoría.</div>';
+    } else {
+      html += '<p class="sub" style="margin-top:-6px">' + T.conformes + ' conformes · ' + T.observaciones + ' con observación · ' + T.no_conformes + ' no conformes.</p>' +
+        '<div class="tabla-env"><table><thead><tr><th>Semana del</th><th>Hechas</th><th>Conformes</th><th>Observaciones</th><th>No conformes</th></tr></thead><tbody>' +
+        hh.semanas.map(function (w) {
+          return '<tr><td>' + esc(w.desde) + '</td><td class="num"><b>' + w.hechas + '</b></td><td class="num">' + w.conformes +
+            '</td><td class="num">' + w.observaciones + '</td><td class="num">' + w.no_conformes + '</td></tr>';
+        }).join('') + '</tbody></table></div>';
     }
 
     // configuración
@@ -1475,6 +1493,118 @@ td.num{font-family:var(--mono);text-align:right;}
     });
   }
 
+  /* ── Calificación de proveedores ───────────────────────────────── */
+  var CAL = { turno: 0, datos: null };
+  // Cada grupo es un bloque del formulario: [título, [[clave, etiqueta, ayuda], …]]
+  var CRITERIO_GRUPOS = [
+    ['Qué pesa en la nota', [
+      ['peso_auditorias', 'Auditorías', 'Peso de lo que miden los oficiales. Las tres partes se promedian según estos pesos; una parte sin datos no suma y los pesos se reparten.'],
+      ['peso_tickets', 'Tickets', 'Peso del tiempo de resolución de los tickets asignados al proveedor en Zammad.'],
+      ['peso_vencidos', 'Preventivos vencidos', 'Peso de cuántos preventivos que le tocaban hizo a tiempo.']]],
+    ['Cuándo cuenta como a tiempo', [
+      ['ventana_dias', 'Período que cuenta (días)', 'Solo cuenta lo de los últimos días que pongas: auditorías, tickets y preventivos.'],
+      ['ticket_meta_dias', 'Meta del ticket (días)', 'Un ticket cerrado dentro de este plazo, desde que se creó, cuenta como a tiempo. Uno abierto que ya lo superó cuenta como tarde.'],
+      ['vence_gracia_dias', 'Gracia en preventivos (días)', 'Días de tolerancia pasado el vencimiento antes de contarlo como tarde. 0 = sin gracia.'],
+      ['min_calificacion', 'Mínimo de datos', 'Cada parte necesita al menos esta cantidad (auditorías, tickets o preventivos) para tener nota.']]],
+    ['Auditorías', [
+      ['peso_observacion_pct', 'Valor de una observación (%)', 'Un conforme vale 100. 50 = una observación cuenta la mitad; 0 = como un no conforme.'],
+      ['penal_falso', 'Resta por falso conforme (puntos)', 'Puntos que se descuentan por cada falso conforme. 0 = no resta.']]],
+    ['Colores', [
+      ['nivel_verde', 'Nota para el verde', 'Desde esta nota hacia arriba, el proveedor está bien.'],
+      ['nivel_amarillo', 'Nota para el amarillo', 'Desde esta nota hasta el verde, en observación. Por debajo, rojo.']]]
+  ];
+  var CRITERIO = [].concat.apply([], CRITERIO_GRUPOS.map(function (g) { return g[1]; }));
+
+  function cargarCalificacion() {
+    var mio = ++CAL.turno;
+    $('cal-cuerpo').innerHTML = '<div class="cargando">Consultando…</div>';
+    pedir('/auditoria/calificacion').then(function (r) {
+      if (mio !== CAL.turno) return;
+      CAL.datos = r;
+      pintarCalificacion();
+    }).catch(function (e) {
+      if (mio !== CAL.turno) return;
+      $('cal-cuerpo').innerHTML = '<div class="aviso mal"><b>No se pudo consultar</b>' + esc(e.message) + '</div>';
+    });
+  }
+
+  function pintarCalificacion() {
+    var r = CAL.datos, c = $('cal-cuerpo');
+    if (!r) return;
+    if (!r.habilitada) {
+      c.innerHTML = '<div class="aviso ojo"><b>La auditoría todavía no está activada</b>' +
+        'Falta preparar la planilla (hojas y columnas de auditoría).</div>';
+      return;
+    }
+    var k = r.criterio;
+    var nivelDe = function (n) { return n >= k.nivel_verde ? 'verde' : n >= k.nivel_amarillo ? 'amarillo' : 'rojo'; };
+    var chip = function (n) { return '<span class="nota ' + (n === null ? 'sin_datos' : nivelDe(n)) + '">' + (n === null ? '—' : n) + '</span>'; };
+    var chico = function (t) { return '<br><small style="color:var(--tinta3)">' + t + '</small>'; };
+
+    var html = (r.avisos || []).map(function (a) { return '<div class="aviso ojo"><b>Falta una fuente</b>' + esc(a) + '</div>'; }).join('');
+    html += '<h3>Cómo se califica</h3>' + CRITERIO_GRUPOS.map(function (g) {
+      return '<div class="aud-conf" style="margin-bottom:10px"><b style="width:100%;font-size:13px">' + g[0] + '</b>' + g[1].map(function (x) {
+        return '<div><label for="cr-' + x[0] + '" title="' + esc(x[2]) + '">' + x[1] + '</label><input id="cr-' + x[0] +
+          '" inputmode="numeric" value="' + esc(k[x[0]]) + '" data-orig="' + esc(k[x[0]]) + '" style="width:120px"></div>';
+      }).join('') + '</div>';
+    }).join('') +
+      '<div class="aud-conf"><button class="btn pri" id="cr-guardar" type="button">Guardar</button><span id="cr-msg" role="status" style="font-size:13.5px"></span></div>' +
+      '<p class="sub">La <b>nota</b> es el promedio de las tres partes según sus pesos (' + k.peso_auditorias + ' / ' + k.peso_tickets + ' / ' + k.peso_vencidos +
+      '), sobre los últimos ' + k.ventana_dias + ' días. Verde desde ' + k.nivel_verde + ', amarillo desde ' + k.nivel_amarillo + ', rojo por debajo. ' +
+      'Pasá el mouse sobre cada campo para ver qué hace.</p>';
+
+    var provs = r.proveedores || [];
+    html += '<h3>Proveedores · ' + provs.length + '</h3>';
+    if (!provs.length) {
+      html += '<div class="vacio">Todavía no hay proveedores cargados.</div>';
+    } else {
+      html += '<div class="tabla-env"><table><thead><tr><th>Proveedor</th><th>Nota</th><th>Auditorías</th><th>Tickets</th><th>Preventivos</th></tr></thead><tbody>' +
+        provs.map(function (p) {
+          var A = p.componentes.auditorias, T = p.componentes.tickets, V = p.componentes.vencidos;
+          var tot = p.realizadas || 0;
+          var pc = function (x) { return tot ? Math.round(x / tot * 100) : 0; };
+          return '<tr><td><b>' + esc(mayus(p.proveedor)) + '</b>' + chico(p.equipos + (p.equipos === 1 ? ' equipo' : ' equipos')) + '</td>' +
+            '<td>' + chip(p.calificacion) + chico(esc(NOMBRE_NIVEL[p.nivel])) + '</td>' +
+            '<td>' + chip(A.nota) + (tot
+              ? '<div class="barra" style="margin-top:5px"><i class="v" style="width:' + pc(p.conformes) + '%"></i><i class="y" style="width:' + pc(p.observaciones) +
+                '%"></i><i class="r" style="width:' + pc(p.no_conformes) + '%"></i></div>' +
+                chico(p.conformes + ' conformes · ' + p.observaciones + ' obs. · ' + p.no_conformes + ' no conf.' +
+                  (p.falsos_conformes ? ' · <span style="color:var(--rojo)">' + p.falsos_conformes + (p.falsos_conformes === 1 ? ' falso conforme' : ' falsos conformes') + '</span>' : ''))
+              : chico('sin auditorías')) +
+              (p.pendientes ? chico(p.pendientes + ' pendientes' + (p.vencidas ? ' (' + p.vencidas + ' vencidas)' : '')) : '') + '</td>' +
+            '<td>' + chip(T.nota) + (T.sin_datos ? chico('sin datos')
+              : T.eventos ? chico(T.a_tiempo + ' de ' + T.eventos + ' a tiempo' + (T.promedio_dias !== null ? ' · promedio ' + String(T.promedio_dias).replace('.', ',') + ' días' : ''))
+              : chico('sin tickets en el período')) + (T.abiertos ? chico(T.abiertos + ' abiertos') : '') + '</td>' +
+            '<td>' + chip(V.nota) + (V.sin_datos ? chico('sin datos')
+              : V.eventos ? chico(V.a_tiempo + ' de ' + V.eventos + ' a tiempo') : chico('sin vencimientos en el período')) +
+              (V.vencidos_hoy ? chico('<span style="color:var(--rojo)">' + V.vencidos_hoy + ' vencidos hoy</span>') : '') + '</td></tr>';
+        }).join('') + '</tbody></table></div>' +
+        '<p class="sub" style="margin-top:10px">Los <b>tickets</b> son los asignados al proveedor en Zammad (por el nombre del usuario). Los <b>preventivos</b> se miden contra la periodicidad de cada equipo. ' +
+        'Un <b>falso conforme</b> es algo que el oficial midió fuera de regla y el proveedor no había reportado. Una parte con menos de ' + k.min_calificacion + ' datos queda sin nota y no entra en el promedio.</p>';
+    }
+    c.innerHTML = html;
+    $('cr-guardar').addEventListener('click', guardarCriterio);
+  }
+
+  function guardarCriterio() {
+    var cuerpo = {};
+    CRITERIO.forEach(function (x) {
+      var i = $('cr-' + x[0]);
+      if (i.value.trim() !== i.getAttribute('data-orig')) cuerpo[x[0]] = i.value.trim();
+    });
+    if (!Object.keys(cuerpo).length) { $('cr-msg').textContent = 'No cambiaste nada.'; return; }
+    var clave = '', autor = '';
+    try { clave = localStorage.getItem('go_admin_clave') || ''; autor = localStorage.getItem('go_admin_nombre') || ''; } catch (e) {}
+    cuerpo.autor = autor;
+    $('cr-guardar').disabled = true;
+    pedir('/admin/auditoria/config', { method: 'POST', headers: { Authorization: 'Clave ' + clave }, body: cuerpo })
+      .then(cargarCalificacion)
+      .catch(function (e) {
+        $('cr-guardar').disabled = false;
+        $('cr-msg').innerHTML = '<span style="color:var(--rojo);font-weight:700">' + esc(e.message) + '</span>';
+      });
+  }
+
   /* Con una institución elegida los valores son suyos; «volver al general» los vacía. */
   function guardarConfigAuditoria(alGeneral) {
     var cuerpo = {}, inst = $('inst').value;
@@ -1525,6 +1655,7 @@ td.num{font-family:var(--mono);text-align:right;}
     if (v === 'v-historial' && !DATOS.historial) cargarHistorial();
     if (v === 'v-empresas') cargarEmpresas(false);
     if (v === 'v-auditoria') cargarAuditoria();
+    if (v === 'v-calificacion') cargarCalificacion();
   }
   document.querySelectorAll('.pest').forEach(function (b) {
     b.addEventListener('click', function () {
