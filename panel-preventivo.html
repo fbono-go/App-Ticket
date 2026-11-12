@@ -1442,7 +1442,7 @@ td.num{font-family:var(--mono);text-align:right;}
         .map(function (x) {
           var k = x[0];
           var nota = inst && !(k in propia) ? '<small class="aud-gen">general</small>' : '';
-          return '<div><label for="cf-' + k + '">' + x[1] + nota + '</label><input id="cf-' + k + '" inputmode="numeric" value="' + esc(cf[k]) + '" data-orig="' + esc(cf[k]) + '"></div>';
+          return '<div><label for="cf-' + k + '">' + x[1] + nota + '</label><input id="cf-' + k + '" inputmode="decimal" value="' + esc(cf[k]) + '" data-orig="' + esc(cf[k]) + '"></div>';
         }).join('') +
       '<button class="btn pri" id="cf-guardar" type="button">Guardar</button>' +
       (inst && hayPropia ? '<button class="btn chico" id="cf-general" type="button">Volver al general</button>' : '') +
@@ -1503,9 +1503,14 @@ td.num{font-family:var(--mono);text-align:right;}
       ['peso_vencidos', 'Preventivos vencidos', 'Peso de cuántos preventivos que le tocaban hizo a tiempo.']]],
     ['Cuándo cuenta como a tiempo', [
       ['ventana_dias', 'Período que cuenta (días)', 'Solo cuenta lo de los últimos días que pongas: auditorías, tickets y preventivos.'],
-      ['ticket_meta_dias', 'Meta del ticket (días)', 'Un ticket cerrado dentro de este plazo, desde que se creó, cuenta como a tiempo. Uno abierto que ya lo superó cuenta como tarde.'],
       ['vence_gracia_dias', 'Gracia en preventivos (días)', 'Días de tolerancia pasado el vencimiento antes de contarlo como tarde. 0 = sin gracia.'],
       ['min_calificacion', 'Mínimo de datos', 'Cada parte necesita al menos esta cantidad (auditorías, tickets o preventivos) para tener nota.']]],
+    ['Plazo de cada ticket según su prioridad (días)', [
+      ['ticket_meta_vital_dias', 'Vital', 'Un ticket Vital cerrado dentro de este plazo, desde que se creó, cuenta como a tiempo. Abierto y pasado de plazo, cuenta como vencido. Admite decimales (0,5 = medio día).'],
+      ['ticket_meta_alta_dias', 'Alta', 'Plazo de los tickets de prioridad Alta.'],
+      ['ticket_meta_media_dias', 'Media', 'Plazo de los tickets de prioridad Media.'],
+      ['ticket_meta_baja_dias', 'Baja', 'Plazo de los tickets de prioridad Baja.'],
+      ['ticket_meta_dias', 'Sin prioridad', 'Plazo para un ticket cuya prioridad no se reconoce.']]],
     ['Auditorías', [
       ['peso_observacion_pct', 'Valor de una observación (%)', 'Un conforme vale 100. 50 = una observación cuenta la mitad; 0 = como un no conforme.'],
       ['penal_falso', 'Resta por falso conforme (puntos)', 'Puntos que se descuentan por cada falso conforme. 0 = no resta.']]],
@@ -1545,7 +1550,7 @@ td.num{font-family:var(--mono);text-align:right;}
     html += '<h3>Cómo se califica</h3>' + CRITERIO_GRUPOS.map(function (g) {
       return '<div class="aud-conf" style="margin-bottom:10px"><b style="width:100%;font-size:13px">' + g[0] + '</b>' + g[1].map(function (x) {
         return '<div><label for="cr-' + x[0] + '" title="' + esc(x[2]) + '">' + x[1] + '</label><input id="cr-' + x[0] +
-          '" inputmode="numeric" value="' + esc(k[x[0]]) + '" data-orig="' + esc(k[x[0]]) + '" style="width:120px"></div>';
+          '" inputmode="decimal" value="' + esc(k[x[0]]) + '" data-orig="' + esc(k[x[0]]) + '" style="width:120px"></div>';
       }).join('') + '</div>';
     }).join('') +
       '<div class="aud-conf"><button class="btn pri" id="cr-guardar" type="button">Guardar</button><span id="cr-msg" role="status" style="font-size:13.5px"></span></div>' +
@@ -1574,7 +1579,11 @@ td.num{font-family:var(--mono);text-align:right;}
               (p.pendientes ? chico(p.pendientes + ' pendientes' + (p.vencidas ? ' (' + p.vencidas + ' vencidas)' : '')) : '') + '</td>' +
             '<td>' + chip(T.nota) + (T.sin_datos ? chico('sin datos')
               : T.eventos ? chico(T.a_tiempo + ' de ' + T.eventos + ' a tiempo' + (T.promedio_dias !== null ? ' · promedio ' + String(T.promedio_dias).replace('.', ',') + ' días' : ''))
-              : chico('sin tickets en el período')) + (T.abiertos ? chico(T.abiertos + ' abiertos') : '') + '</td>' +
+              : chico('sin tickets en el período')) + (T.abiertos ? chico(T.abiertos + ' abiertos') : '') +
+              (T.por_prioridad ? chico(['vital', 'alta', 'media', 'baja', 'sin'].filter(function (q) { var f = T.por_prioridad[q]; return f && (f.a_tiempo + f.tarde); }).map(function (q) {
+                var f = T.por_prioridad[q];
+                return (q === 'sin' ? 'Sin prio.' : q.charAt(0).toUpperCase() + q.slice(1)) + ' ' + f.a_tiempo + '/' + (f.a_tiempo + f.tarde);
+              }).join(' · ')) : '') + '</td>' +
             '<td>' + chip(V.nota) + (V.sin_datos ? chico('sin datos')
               : V.eventos ? chico(V.a_tiempo + ' de ' + V.eventos + ' a tiempo') : chico('sin vencimientos en el período')) +
               (V.vencidos_hoy ? chico('<span style="color:var(--rojo)">' + V.vencidos_hoy + ' vencidos hoy</span>') : '') + '</td></tr>';
