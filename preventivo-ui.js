@@ -1145,6 +1145,7 @@
       </select>
       <div class="prev-hint">Si lo mantiene una empresa, desde el alta aparece en la app de esa empresa.</div>`
       : `<div class="prev-hint" style="margin-top:12px">Queda a nombre de <b>${esc(EMPRESA())}</b>.</div>`}
+      <div id="prev-a-emp-aviso"></div>
 
       ${pideEnAlta(coincide.tipo_id, 'marca') ? '' : `<label class="prev-lbl">Marca</label>
       <input id="prev-a-marca" class="prev-input" maxlength="40"
@@ -1157,7 +1158,7 @@
       ${datosHtml(coincide.alta, null, PREF_ALTA)}
 
       <label class="prev-lbl">Lugar</label>
-      <select id="prev-a-lugar" class="prev-input" onchange="PREV.recargarVinculos()">
+      <select id="prev-a-lugar" class="prev-input" onchange="PREV.lugarCambio()">
         ${lugaresDe(instId).map((l) => `<option value="${esc(l.v)}">${esc(l.t)}</option>`).join('')}
       </select>
 
@@ -1195,7 +1196,60 @@
     altaTipoCambio();
     mostrar('prev-pant-alta');
     if (esClima(coincide.funcion)) cargarVinculosAlta(coincide);
+    sugerirEmpresa();
   }
+
+  /**
+   * En un lugar puede haber equipos del mismo tipo de dos empresas, así que la
+   * empresa no se adivina por el tipo: se mira quién mantiene los que ya están
+   * cargados en ese lugar. Con una sola empresa se sugiere (al oficial se le
+   * preelige; al técnico se le avisa si no es la suya). Con dos o más, o sin
+   * vecinos, no se sugiere nada y se elige a mano, como antes.
+   */
+  let sugEmpresa = null;
+  async function sugerirEmpresa() {
+    const lugar = ($('prev-a-lugar') || {}).value;
+    const tipo = ($('prev-a-tipo') || {}).value;
+    const caja = $('prev-a-emp-aviso');
+    sugEmpresa = null;
+    if (caja) caja.innerHTML = '';
+    if (!lugar || !tipo || !navigator.onLine) return;
+    let r;
+    try {
+      r = await api('/empresa-sugerida?lugar=' + encodeURIComponent(lugar) +
+        '&tipo=' + encodeURIComponent(tipo), { timeout: 15000 });
+    } catch (e) { return; }                       // sin dato no se sugiere: el alta sigue igual
+    // si mientras tanto cambió el lugar, esta respuesta ya no vale
+    if (!r || !$('prev-a-lugar') || $('prev-a-lugar').value !== lugar) return;
+    sugEmpresa = r;
+    const el = $('prev-a-emp-aviso');
+    const lista = (r.empresas || []).map((e) => `<b>${esc(e.nombre)}</b> (${e.equipos})`)
+      .concat(r.personal_propio ? [`<b>personal propio</b> (${r.personal_propio})`] : []);
+    if (!lista.length || !el) return;
+
+    if (ROL === 'oficial') {
+      const sel = $('prev-a-emp');
+      if (r.unica && sel) {
+        const clave = claveEmpresa(r.sugerida);
+        const op = [...sel.options].find((o) => claveEmpresa(o.value) === clave);
+        sel.value = op ? op.value : '';
+        el.innerHTML = `<div class="prev-hint">En este lugar los equipos de este tipo los mantiene
+          ${lista[0]}. Ya quedó elegida; cambiala si este es distinto.</div>`;
+      } else if (!r.unica) {
+        el.innerHTML = `<div class="prev-card prev-warn"><b>Hay más de una empresa en este lugar</b>
+          <p>Para este tipo de equipo: ${lista.join(' y ')}. Elegí cuál mantiene este equipo.</p></div>`;
+      }
+      return;
+    }
+    // técnico de un proveedor: el equipo queda a nombre de su empresa
+    if (suEmpresaEnSugerencia(r)) return;
+    el.innerHTML = `<div class="prev-card prev-warn"><b>Ojo: este lugar es de otra empresa</b>
+      <p>Los equipos de este tipo acá los mantiene ${lista.join(' y ')}. Si este equipo es
+         de ellos, no lo des de alta vos: quedaría a nombre de ${esc(EMPRESA())} y ellos no
+         podrían trabajarlo.</p></div>`;
+  }
+  /** ¿La empresa del técnico es una de las que ya mantienen equipos de este tipo en el lugar? */
+  const suEmpresaEnSugerencia = (r) => (r.empresas || []).some((e) => e.clave === claveEmpresa(EMPRESA()));
 
   /**
    * Lo que es propio de la climatización (de qué unidad depende, ejemplos de
@@ -1346,6 +1400,12 @@
       aviso('El alta de un equipo nuevo necesita conexión. Anotá el código y volvé con señal.');
       return;
     }
+    // un técnico que da de alta en un lugar de otra empresa: se le pide confirmar,
+    // porque el equipo queda a su nombre y la empresa que corresponde lo ve bloqueado
+    if (ROL !== 'oficial' && sugEmpresa && (sugEmpresa.empresas.length || sugEmpresa.personal_propio) &&
+        !suEmpresaEnSugerencia(sugEmpresa) &&
+        !window.confirm('En este lugar los equipos de este tipo los mantiene otra empresa.\n\n' +
+          '¿Seguro que este equipo es de ' + EMPRESA() + '?')) return;
     // un nivel de empresa sin empresa cargada no lo puede hacer nadie
     const planAlta = (tipoDe(cuerpo.tipo) || {}).plan || [];
     if (ROL === 'oficial' && planAlta.some((n) => n.responsable === 'externo') && !cuerpo.empresa) {
@@ -3274,6 +3334,10 @@
     inicio, escanear, cargarManual, cambiarInstitucion, guardarTecnico,
     guardarTecnicoConfig, correctivo,
     recargarVinculos: () => cargarVinculosAlta(tipoDe(($('prev-a-tipo') || {}).value)),
+    lugarCambio: () => {
+      cargarVinculosAlta(tipoDe(($('prev-a-tipo') || {}).value));
+      sugerirEmpresa();
+    },
     tipoTrabajo, elegirTicket, guardarTrabajo, verHistorial, abrirTrabajo,
     editar, guardarEdicion, pedirBaja, guardarBaja, mostrarBloqueado,
     filtrarLugar, filtrarEstado, abrirPreventivo, volverHistorial,
