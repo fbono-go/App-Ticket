@@ -283,6 +283,17 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
 
   // desempate por nombre interno: la lista y las flechas tienen que coincidir siempre
   function porOrden(a, b) { return (a.orden - b.orden) || (a.campo_id < b.campo_id ? -1 : a.campo_id > b.campo_id ? 1 : 0); }
+  /** Con qué se puede comparar una medición: datos fijos del equipo + preguntas numéricas del alta del tipo abierto. */
+  function refsDelTipo() {
+    var r = {};
+    (CAT.alta || []).forEach(function (c) {
+      if (c.tipo_id === S.tipo && c.activo && c.tipo_campo === 'numero') {
+        r['dato_' + c.campo_id] = c.etiqueta + (c.unidad ? ' (' + c.unidad + ')' : '') + ' · dato del alta';
+      }
+    });
+    Object.keys(CAT.refs).forEach(function (k) { r[k] = CAT.refs[k]; });
+    return r;
+  }
   function tipoDe(id) { return CAT.tipos.find(function (t) { return t.tipo_id === id; }) || null; }
   function cadena(id) {
     var out = [], vistos = {};
@@ -324,8 +335,9 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
       case 'menor': return 'avisa si < ' + fmt(r.a) + u;
       case 'mayor': return 'avisa si > ' + fmt(r.a) + u;
       case 'fuera': return 'avisa fuera de ' + fmt(r.a) + '–' + fmt(r.b) + u;
-      case 'sobre_ref': return 'avisa si supera ' + fmt(r.pct) + '% de la chapa';
-      case 'bajo_ref': return 'avisa si cae ' + fmt(r.pct) + '% del nominal';
+      case 'sobre_ref': return 'avisa si supera en ' + fmt(r.pct) + '% la referencia';
+      case 'bajo_ref': return 'avisa si cae ' + fmt(r.pct) + '% de la referencia';
+      case 'llega_ref': return 'avisa al llegar al ' + fmt(r.pct) + '% de la referencia';
       case 'opciones':
         var ts = (c.opciones || []).filter(function (o) { return r.valores.indexOf(o.v) >= 0; }).map(function (o) { return o.t; });
         return 'avisa: ' + (ts.join(', ') || r.valores.join(', '));
@@ -370,13 +382,15 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
         if (a >= b) { out.error = out.error || 'El mínimo tiene que ser menor que el máximo.'; break; }
         out.frase = 'Avisa si el valor queda fuera de ' + fmt(a) + ' a ' + fmt(b) + u + '.';
         out.guarda = 'fuera de ' + a + ' a ' + b; break;
-      case 'sobre_ref': case 'bajo_ref':
-        if (!CAT.refs[r.ref]) { out.error = out.error || 'Elegí contra qué dato del equipo se compara.'; break; }
+      case 'sobre_ref': case 'bajo_ref': case 'llega_ref':
+        if (!refsDelTipo()[r.ref]) { out.error = out.error || 'Elegí contra qué dato del equipo se compara.'; break; }
         if (pct === null || pct <= 0 || pct > 500) { out.error = out.error || 'El porcentaje va de 1 a 500.'; break; }
-        out.frase = r.op === 'sobre_ref'
-          ? 'Avisa si supera en más de ' + fmt(pct) + '% el valor cargado en el equipo (' + CAT.refs[r.ref] + ').'
-          : 'Avisa si cae más de ' + fmt(pct) + '% por debajo del valor cargado en el equipo (' + CAT.refs[r.ref] + ').';
-        out.guarda = (r.op === 'sobre_ref' ? 'supera ' : 'cae ') + pct + '% de ' + r.ref; break;
+        out.frase = r.op === 'llega_ref'
+          ? 'Avisa si el valor llega al ' + fmt(pct) + '% del valor cargado en el equipo (' + refsDelTipo()[r.ref] + ').'
+          : r.op === 'sobre_ref'
+          ? 'Avisa si supera en más de ' + fmt(pct) + '% el valor cargado en el equipo (' + refsDelTipo()[r.ref] + ').'
+          : 'Avisa si cae más de ' + fmt(pct) + '% por debajo del valor cargado en el equipo (' + refsDelTipo()[r.ref] + ').';
+        out.guarda = (r.op === 'sobre_ref' ? 'supera ' : r.op === 'llega_ref' ? 'llega a ' : 'cae ') + pct + '% de ' + r.ref; break;
       case 'invalida': case 'otra':
         out.error = out.error || 'Elegí una regla nueva: la actual no se puede editar acá.'; break;
       default: break;
@@ -398,6 +412,7 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
       case 'fuera': return a === null || b === null ? null : (v < a || v > b);
       case 'sobre_ref': return ref === null || ref <= 0 || pct === null ? null : v > ref * (1 + pct / 100);
       case 'bajo_ref': return ref === null || ref <= 0 || pct === null ? null : v < ref * (1 - pct / 100);
+      case 'llega_ref': return ref === null || ref <= 0 || pct === null ? null : v >= ref * pct / 100;
       default: return null;
     }
   }
@@ -1015,7 +1030,7 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
     }
     if (F.tipo_campo === 'numero' || calc) {
       h += '<div class="pills">' + [['nunca', 'No avisa'], ['menor', 'Si es menor a…'], ['mayor', 'Si es mayor a…'],
-        ['fuera', 'Si sale de un rango…'], ['sobre_ref', 'Si supera un % de un dato del equipo…'], ['bajo_ref', 'Si cae un % de un dato del equipo…']]
+        ['fuera', 'Si sale de un rango…'], ['sobre_ref', 'Si supera en un % a un dato del equipo…'], ['bajo_ref', 'Si cae un % de un dato del equipo…'], ['llega_ref', 'Si llega a un % de un dato del equipo…']]
         .map(function (x) { return '<button type="button" class="pill' + (F.regla.op === x[0] ? ' on' : '') + '" data-op="' + x[0] + '" aria-pressed="' + (F.regla.op === x[0]) + '">' + x[1] + '</button>'; }).join('') + '</div>';
       var u = '<span class="num" style="color:var(--tinta2)">' + esc(F.unidad) + '</span>';
       if (F.regla.op === 'menor' || F.regla.op === 'mayor') {
@@ -1023,11 +1038,11 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
       } else if (F.regla.op === 'fuera') {
         h += '<div class="valores"><span>Tiene que estar entre</span><input type="text" inputmode="decimal" class="num w-chico" id="f-a" aria-label="Mínimo" value="' + esc(F.regla.a) + '">' +
           '<span>y</span><input type="text" inputmode="decimal" class="num w-chico" id="f-b" aria-label="Máximo" value="' + esc(F.regla.b) + '">' + u + '</div>';
-      } else if (F.regla.op === 'sobre_ref' || F.regla.op === 'bajo_ref') {
-        h += '<div class="valores"><span>' + (F.regla.op === 'sobre_ref' ? 'Avisa si supera en más de' : 'Avisa si cae más de') + '</span>' +
-          '<input type="text" inputmode="decimal" class="num w-chico" id="f-pct" aria-label="Porcentaje" value="' + esc(F.regla.pct) + '"><span>% el</span>' +
-          '<select id="f-ref" style="width:auto">' + Object.keys(CAT.refs).map(function (k) {
-            return '<option value="' + esc(k) + '"' + (F.regla.ref === k ? ' selected' : '') + '>' + esc(CAT.refs[k]) + '</option>';
+      } else if (F.regla.op === 'sobre_ref' || F.regla.op === 'bajo_ref' || F.regla.op === 'llega_ref') {
+        h += '<div class="valores"><span>' + (F.regla.op === 'llega_ref' ? 'Avisa si llega al' : F.regla.op === 'sobre_ref' ? 'Avisa si supera en más de' : 'Avisa si cae más de') + '</span>' +
+          '<input type="text" inputmode="decimal" class="num w-chico" id="f-pct" aria-label="Porcentaje" value="' + esc(F.regla.pct) + '"><span>' + (F.regla.op === 'llega_ref' ? '% de' : '% el') + '</span>' +
+          '<select id="f-ref" style="width:auto">' + Object.keys(refsDelTipo()).map(function (k) {
+            return '<option value="' + esc(k) + '"' + (F.regla.ref === k ? ' selected' : '') + '>' + esc(refsDelTipo()[k]) + '</option>';
           }).join('') + '</select></div>';
       }
     } else if (F.tipo_campo === 'si_no') {
@@ -1112,7 +1127,13 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
       b.onclick = function () { var v = b.getAttribute('data-nivel'); F.nivel = v === 'todos' ? 'todos' : Number(v); pintarPanel(); };
     });
     Array.prototype.forEach.call(P.querySelectorAll('[data-op]'), function (b) {
-      b.onclick = function () { F.regla.op = b.getAttribute('data-op'); pintarPanel(); var a = $('f-a') || $('f-pct'); if (a) a.focus(); };
+      b.onclick = function () {
+        var antes = F.regla.op;
+        F.regla.op = b.getAttribute('data-op');
+        // al empezar una regla contra un dato del equipo, se propone el primero de la lista
+        // (un dato del alta, si el tipo lo tiene); si ya era una, se conserva la elección
+        if (/_ref$/.test(F.regla.op) && (!/_ref$/.test(antes) || !refsDelTipo()[F.regla.ref])) F.regla.ref = Object.keys(refsDelTipo())[0];
+        pintarPanel(); var a = $('f-a') || $('f-pct'); if (a) a.focus(); };
     });
     Array.prototype.forEach.call(P.querySelectorAll('[data-opt]'), function (inp) {
       inp.addEventListener('input', function () { F.opciones[Number(inp.getAttribute('data-opt'))].t = inp.value; refrescar(); });
@@ -1135,13 +1156,13 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
     $('d-guarda').textContent = A.guarda;
 
     var numerico = (F.tipo_campo === 'numero' || F.tipo_campo === 'calculado') &&
-      ['menor', 'mayor', 'fuera', 'sobre_ref', 'bajo_ref'].indexOf(F.regla.op) >= 0 && !A.error;
+      ['menor', 'mayor', 'fuera', 'sobre_ref', 'bajo_ref', 'llega_ref'].indexOf(F.regla.op) >= 0 && !A.error;
     var pr = $('d-probar');
     if (!numerico) { pr.innerHTML = ''; pr.classList.add('oculto'); }
     else {
       pr.classList.remove('oculto');
       if (!pr.querySelector('#p-v')) {
-        var conRef = F.regla.op === 'sobre_ref' || F.regla.op === 'bajo_ref';
+        var conRef = F.regla.op === 'sobre_ref' || F.regla.op === 'bajo_ref' || F.regla.op === 'llega_ref';
         pr.innerHTML = '<label for="p-v" style="font-weight:700">Probar con un valor</label>' +
           '<input type="text" inputmode="decimal" id="p-v" class="num w-chico" placeholder="ej. 31" value="' + esc(S.prueba.v) + '">' +
           (conRef ? '<span>con dato del equipo</span><input type="text" inputmode="decimal" id="p-ref" class="num w-chico" placeholder="ej. 12" aria-label="Dato del equipo" value="' + esc(S.prueba.ref) + '">' : '') +
