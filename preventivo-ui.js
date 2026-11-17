@@ -97,6 +97,14 @@
   let INVENTARIO = [];        // equipos de la institución activa
   let COLA = [];              // registros pendientes de subir
   let equipoActual = null;
+  /** Valor de referencia del equipo para una regla: un dato fijo o «dato_<pregunta del alta>». */
+  function refDeEquipo(ref) {
+    if (!equipoActual) return '';
+    const v = String(ref).startsWith('dato_')
+      ? (equipoActual.datos || {})[String(ref).slice(5)]
+      : equipoActual[ref];
+    return v == null ? '' : v;
+  }
   let checklistActual = [];
   let AUD = null;             // auditoría en curso (solo oficiales): { id }
   let AUDS = [];              // auditorías pendientes de la institución activa
@@ -1843,16 +1851,20 @@
       else if (r.op === 'mayor') d = Number(v) > Number(r.valor);
       else if (r.op === 'fuera') d = (r.min != null && v < r.min) || (r.max != null && v > r.max);
       else if (r.op === 'en') d = (r.valores || []).map(String).includes(String(v));
+      else if (r.op === 'llega_ref') {
+        const refL = Number(refDeEquipo(r.ref));
+        if (refL > 0) d = Number(v) >= refL * (Number(r.pct) || 0) / 100;
+      }
       else if (r.op === 'bajo_ref') {
         // el capacitor falla por perder capacidad, no por ganarla
-        const crudoB = String(equipoActual[r.ref] == null ? '' : equipoActual[r.ref]);
+        const crudoB = String(refDeEquipo(r.ref));
         const partesB = crudoB.split(';');
         const refB = Number(partesB.length > 1 ? partesB[c.indice || 0] : crudoB);
         if (refB > 0) d = Number(v) < refB * (1 - (Number(r.pct) || 0) / 100);
       }
       else if (r.op === 'sobre_ref') {
         // la referencia puede venir como lista "18;18;14", una por compresor
-        const crudo = String(equipoActual[r.ref] == null ? '' : equipoActual[r.ref]);
+        const crudo = String(refDeEquipo(r.ref));
         const partes = crudo.split(';');
         const ref = Number(partes.length > 1 ? partes[c.indice || 0] : crudo);
         if (ref > 0) d = Number(v) > ref * (1 + (Number(r.pct) || 0) / 100);
