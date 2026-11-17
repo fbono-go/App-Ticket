@@ -1251,7 +1251,7 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
      en el equipo y se pueden corregir después. Además de marca y capacidad, que se
      piden siempre. Las preguntas del preventivo son otra cosa: se responden en
      cada visita. */
-  var TIPOS_ALTA = [['texto', 'Texto'], ['numero', 'Número'], ['opciones', 'Opciones'], ['si_no', 'Sí / No']];
+  var TIPOS_ALTA = [['texto', 'Texto'], ['numero', 'Número'], ['opciones', 'Opciones'], ['si_no', 'Sí / No'], ['foto', 'Foto']];
 
   function altaPropias(activas) {
     return (CAT.alta || []).filter(function (c) { return c.tipo_id === S.tipo && c.activo === activas; }).sort(porOrden);
@@ -1414,6 +1414,9 @@ input:disabled{background:var(--gris);color:var(--tinta3);}
           // una opción ya guardada no se quita si hay equipos: quedarían con un valor huérfano
           (bloqueado && o.v ? '' : '<button type="button" class="x" data-aquitar="' + j + '" aria-label="Quitar opción">×</button>') + '</div>';
       }).join('') + '<div><button type="button" class="b chico" id="a-addopt">+ Agregar opción</button></div></div>';
+    }
+    if (F.tipo_campo === 'foto') {
+      h += '<div class="nota">El técnico saca hasta 3 fotos al dar de alta el equipo. Si es obligatorio, sin al menos una no se puede dar de alta.</div>';
     }
     if (F.tipo_campo === 'numero') {
       h += '<div class="campo"><span class="lbl">Límites al tipear <span style="font-weight:400;color:var(--tinta3)">(opcional)</span></span>' +
