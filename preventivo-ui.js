@@ -1045,6 +1045,61 @@
   // las tiene como preguntas del alta (editables desde el creador), se piden por ahí.
   const pideEnAlta = (tipoId, id) => altaDeTipo(tipoId).some((c) => c.campo_id === id);
 
+  /* Fotos de las preguntas del alta, por id de la pregunta en pantalla:
+     {url} = ya subida (viene del equipo), {base64, nombre} = recién sacada. */
+  const fotosDato = {};
+
+  function fotosDatoHtml(id) {
+    const lista = fotosDato[id] || [];
+    return lista.map((f, i) => '<div class="prev-foto">' +
+        (f.base64 ? `<img src="data:image/jpeg;base64,${f.base64}" alt=""/>`
+          : `<a class="prev-foto-ver" href="${esc(f.url)}" target="_blank" rel="noopener"><i class="ti ti-photo"></i>Foto ${i + 1}</a>`) +
+        `<button type="button" aria-label="Quitar foto" onclick="PREV.quitarFotoDato('${id}',${i})">&times;</button></div>`).join('') +
+      (lista.length < FOTOS_MAX
+        ? `<label class="prev-foto prev-add"><i class="ti ti-camera"></i>
+             <input type="file" accept="image/*" capture="environment" multiple
+                    onchange="PREV.agregarFotosDato('${id}', this)" hidden></label>`
+        : '');
+  }
+
+  async function agregarFotosDato(id, input) {
+    const lista = fotosDato[id] || (fotosDato[id] = []);
+    for (const f of Array.from(input.files || []).slice(0, FOTOS_MAX - lista.length)) {
+      try {
+        lista.push({ base64: await comprimir(f), nombre: `${equipoActual.equipo_id}_alta_${Date.now()}.jpg` });
+      } catch (e) {
+        aviso('No se pudo procesar una foto');
+      }
+    }
+    input.value = '';
+    const c = $(id);
+    if (c) c.innerHTML = fotosDatoHtml(id);
+  }
+
+  function quitarFotoDato(id, i) {
+    (fotosDato[id] || []).splice(i, 1);
+    const c = $(id);
+    if (c) c.innerHTML = fotosDatoHtml(id);
+  }
+
+  /** Sube las fotos nuevas y deja en `datos` solo direcciones. Lo ya subido no se repite si se reintenta. */
+  async function subirFotosDatos(datos, campos, pref) {
+    for (const c of campos || []) {
+      if (c.tipo_campo !== 'foto' || !(c.campo_id in datos)) continue;
+      const lista = fotosDato[idDato(c, pref)] || [];
+      for (const f of lista) {
+        if (f.url) continue;
+        const rf = await api('/foto', {
+          method: 'POST',
+          body: { base64: f.base64, nombre: f.nombre, mime: 'image/jpeg', institucion: cfg.institucion },
+        });
+        f.url = rf.url;
+        delete f.base64;
+      }
+      datos[c.campo_id] = lista.length ? lista.map((f) => f.url) : '';
+    }
+  }
+
   /** Dibuja las preguntas; `datos` precarga las respuestas cuando se corrige. */
   function datosHtml(campos, datos, pref) {
     datos = datos || {};
@@ -1060,6 +1115,10 @@
       } else if (c.tipo_campo === 'si_no') {
         campo = elegir(`<option value="true"${String(v) === 'true' ? ' selected' : ''}>Sí</option>` +
           `<option value="false"${String(v) === 'false' ? ' selected' : ''}>No</option>`);
+      } else if (c.tipo_campo === 'foto') {
+        const id = idDato(c, pref);
+        fotosDato[id] = (Array.isArray(v) ? v : (v ? [v] : [])).map((url) => ({ url: String(url) }));
+        campo = `<div id="${esc(id)}" class="prev-fotos">${fotosDatoHtml(id)}</div>`;
       } else if (c.tipo_campo === 'numero') {
         campo = `<input id="${esc(idDato(c, pref))}" class="prev-input" type="number" inputmode="decimal"
                         step="any" value="${v == null ? '' : esc(v)}">`;
@@ -1077,6 +1136,13 @@
     const datos = {};
     const faltan = [];
     for (const c of campos || []) {
+      if (c.tipo_campo === 'foto') {
+        // se pasan a direcciones con subirFotosDatos, justo antes de enviar
+        const lista = fotosDato[idDato(c, pref)] || [];
+        datos[c.campo_id] = lista;
+        if (c.requerido && !lista.length) faltan.push(c.etiqueta);
+        continue;
+      }
       const el = $(idDato(c, pref));
       const v = el ? String(el.value).trim() : '';
       datos[c.campo_id] = v;
@@ -1092,6 +1158,10 @@
       const v = datos[c.campo_id];
       if (v === undefined || v === null || v === '') return '';
       if (c.tipo_campo === 'si_no') return `${c.etiqueta}: ${String(v) === 'true' ? 'sí' : 'no'}`;
+      if (c.tipo_campo === 'foto') {
+        const n = Array.isArray(v) ? v.length : 1;
+        return `${c.etiqueta}: ${n} foto${n === 1 ? '' : 's'}`;
+      }
       if (c.tipo_campo === 'opciones') {
         const o = c.opciones.find((x) => x.v === String(v));
         return o ? o.t : String(v);
@@ -1422,6 +1492,7 @@
     }
     try {
       $('prev-pant-alta').classList.add('cargando');
+      await subirFotosDatos(cuerpo.datos, altaDeTipo(cuerpo.tipo), PREF_ALTA);
       const r = await api('/equipo', { method: 'POST', body: cuerpo });
       // con plan de niveles, el equipo recién creado se pide de nuevo: trae sus niveles
       let ficha = null;
@@ -2676,6 +2747,11 @@
       const ahora = leerDatos(preguntas, PREF_EDITAR).datos;
       const cambiados = {};
       for (const c of preguntas) {
+        if (c.tipo_campo === 'foto') {
+          const previas = [].concat(antes[c.campo_id] || []).join(' ');
+          if (ahora[c.campo_id].map((f) => f.url || '+').join(' ') !== previas) cambiados[c.campo_id] = ahora[c.campo_id];
+          continue;
+        }
         const previo = antes[c.campo_id] == null ? '' : String(antes[c.campo_id]);
         if (ahora[c.campo_id] !== previo) cambiados[c.campo_id] = ahora[c.campo_id];
       }
@@ -2686,6 +2762,7 @@
 
     try {
       $('prev-pant-editar').classList.add('cargando');
+      if (campos.datos) await subirFotosDatos(campos.datos, preguntas, PREF_EDITAR);
 
       const r = await api('/cambio', {
         method: 'POST',
@@ -3114,6 +3191,9 @@
   .prev-foto{position:relative;width:74px;height:74px;border-radius:10px;overflow:hidden;
     border:1px solid #d7dee7;}
   .prev-foto img{width:100%;height:100%;object-fit:cover;}
+  .prev-foto-ver{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+    width:100%;height:100%;background:#eef3fb;color:#0060D6;font-size:12px;font-weight:600;text-decoration:none;}
+  .prev-foto-ver i{font-size:22px;}
   .prev-foto button{position:absolute;top:2px;right:2px;width:20px;height:20px;border:0;
     border-radius:50%;background:rgba(0,0,0,.6);color:#fff;font-size:14px;cursor:pointer;line-height:1;}
   .prev-add{display:flex;align-items:center;justify-content:center;background:#f4f6f8;
@@ -3358,6 +3438,7 @@
     guardarRegistro, guardarAuditoria, abrirAuditoria,
     agregarFotos, sincronizar,
     quitarFoto: (i) => { fotos.splice(i, 1); pintarFotos(); },
+    agregarFotosDato, quitarFotoDato,
     // solo para pruebas automatizadas: agrega una foto sin pasar por la cámara
     __test_agregarFoto: (b64) => {
       fotos.push({ base64: b64 || 'AAAA', nombre: 'prueba.jpg' });
