@@ -260,6 +260,16 @@
     (lugaresDe(instId).find((x) => String(x.v) === String(id)) || {}).t || '';
   const nombrePiso = (id) => (pisos().find((x) => String(x.v) === String(id)) || {}).t || '';
 
+  // Código con el que arranca la etiqueta (SP-AA-0017 → SP). Misma regla que los
+  // generadores de etiquetas (etiquetas.html) y que el servidor (preventivo.js).
+  const CODIGOS_INST = { 13: 'ICR', 12: 'SP', 15: 'SDN', 14: 'DMO', 33: 'GO', 132: 'ME', 138: 'GG' };
+  const codigoInst = (i) => CODIGOS_INST[i.v] ||
+    String(i.t).trim().split(/\s+/).map((p) => p[0]).join('').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+  const instDeEtiqueta = (id) => {
+    const cod = String(id).split('-')[0].toUpperCase();
+    return instituciones().find((i) => codigoInst(i) === cod) || null;
+  };
+
   /* ── Inventario y tipos ─────────────────────────────────────────────── */
   /**
    * Los checklists se usan de inmediato desde lo guardado, pero SIEMPRE se
@@ -1102,7 +1112,6 @@
 
   /* ---- alta de equipo ---- */
   function abrirAlta(id) {
-    const instId = cfg.institucion || '';
     // Los bloques de función (fn_generacion, fn_terminal, ...) son abstractos:
     // existen para heredar, no para dar de alta un equipo. Se reconocen porque
     // no tienen prefijo_qr, que es lo que hace falta para armar un equipo_id.
@@ -1130,6 +1139,23 @@
       return;
     }
 
+    // La institución también la define la etiqueta, no la que está elegida en el
+    // celular: una etiqueta SP solo puede cargarse en lugares de Sanatorio Parque.
+    const inst = instDeEtiqueta(id);
+    if (!inst) {
+      $('prev-alta-cuerpo').innerHTML = `
+        <div class="prev-card prev-warn">
+          <b>No se reconoce la institución</b>
+          <p>El código <b>${esc(id)}</b> no empieza con el código de ninguna institución.
+             Revisá la etiqueta y, con señal, volvé a intentar.</p>
+        </div>`;
+      mostrar('prev-pant-alta');
+      return;
+    }
+    const instId = String(inst.v);
+    equipoActual._inst = instId;
+    const otraInst = String(cfg.institucion) !== instId;
+
     const sugerido = coincide.tipo_id;
 
     $('prev-alta-cuerpo').innerHTML = `
@@ -1138,6 +1164,13 @@
         <p>El código <b>${esc(id)}</b> no está en el sistema. Se da de alta ahora,
            en el momento, y queda listo para el preventivo.</p>
       </div>
+      ${otraInst ? `<div class="prev-card prev-warn">
+        <b>La etiqueta es de ${esc(inst.t)}</b>
+        <p>Tenés elegida otra institución. Si el equipo no está en ${esc(inst.t)},
+           no lo des de alta: usá una etiqueta de la institución donde está.</p>
+      </div>` : ''}
+      <label class="prev-lbl">Institución</label>
+      <div class="prev-in-fijo">${esc(inst.t)}</div>
       <label class="prev-lbl">Tipo de equipo</label>
       <div class="prev-in-fijo">${esc(coincide.nombre || sugerido)}</div>
       <input type="hidden" id="prev-a-tipo" value="${esc(sugerido)}">
@@ -1372,7 +1405,7 @@
   }
 
   async function guardarAlta() {
-    const instId = cfg.institucion;
+    const instId = equipoActual._inst;
     const lugarId = $('prev-a-lugar').value;
     const pisoId = $('prev-a-piso').value;
     const ref = $('prev-a-ref');
@@ -1439,8 +1472,11 @@
       // al inventario del celular solo entra si es de quien lo carga
       const esMioNuevo = ficha && ficha.equipo.niveles ? nivelesMios(ficha.equipo).length > 0
         : cuerpo.responsable === POLITICA();
-      if (esMioNuevo && !esAjeno(nuevo)) INVENTARIO.push(nuevo);
-      await dbSet('kv', { time: Date.now(), equipos: INVENTARIO }, claveInventario(instId));
+      // el inventario en memoria es el de la institución elegida: uno de otra no entra
+      if (String(cfg.institucion) === instId) {
+        if (esMioNuevo && !esAjeno(nuevo)) INVENTARIO.push(nuevo);
+        await dbSet('kv', { time: Date.now(), equipos: INVENTARIO }, claveInventario(instId));
+      }
       aviso('Equipo dado de alta');
       abrirChecklist(Object.assign({}, cuerpo, ficha ? ficha.equipo : {}, { tipo: cuerpo.tipo },
         ficha ? { _checklist: ficha.checklist, _nivel: ficha.nivel } : {}));
