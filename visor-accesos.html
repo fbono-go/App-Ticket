@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Accesos de proveedores · GO Mantenimiento</title>
+<script>
+/* Se entra por mantenimiento.html, que pide la clave. */
+(function () {
+  var c = '';
+  try { c = localStorage.getItem('go_admin_clave') || ''; } catch (e) { /* nada */ }
+  if (!c) location.replace('mantenimiento.html?volver=visor-accesos.html');
+})();
+</script>
+<style>
+*{box-sizing:border-box;}
+body{margin:0;background:#E9EDF1;color:#10161D;font:15px system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;}
+.top{background:#10161D;color:#fff;padding:22px 16px;border-bottom:4px solid #0060D6;}
+.in{max-width:760px;margin:0 auto;}
+.top a{color:#8DB4EE;text-decoration:none;font-weight:600;font-size:13.5px;}
+h1{margin:8px 0 0;font-size:24px;}
+main{padding:20px 16px 50px;}
+p{color:#48545F;line-height:1.5;}
+.emp{background:#fff;border:1px solid #C3CDD6;border-radius:10px;padding:14px 16px;margin-bottom:10px;
+  display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;}
+.emp small{display:block;color:#5F6B77;margin-top:2px;}
+.acc{display:flex;gap:8px;}
+button,.acc a{font:700 13.5px system-ui,sans-serif;border:0;border-radius:8px;padding:9px 14px;cursor:pointer;
+  background:#0060D6;color:#fff;text-decoration:none;}
+.acc a{background:#EEF1F5;color:#10161D;}
+input{width:100%;margin-top:8px;padding:8px;border:1px solid #C3CDD6;border-radius:7px;font-size:13px;}
+.mal{background:#FBE6E3;color:#B03226;border-radius:8px;padding:12px 14px;font-weight:600;}
+</style>
+<script defer src="./actualizar.js"></script>
+</head>
+<body>
+<header class="top">
+  <div class="in">
+    <a href="mantenimiento.html">← Mantenimiento preventivo</a>
+    <h1>Accesos de proveedores</h1>
+  </div>
+</header>
+<main class="in">
+  <p>Cada empresa tiene su propio enlace y con él ve <b>solo sus equipos y sus preventivos</b>, sin poder modificar nada.
+     Quien tenga el enlace puede entrar: enviáselo únicamente al supervisor de la empresa.</p>
+  <div id="lista">Cargando… puede tardar un minuto si el servidor estaba dormido.</div>
+</main>
+<script>
+(function () {
+  'use strict';
+  var API = 'https://gored-proxy-ov5y.onrender.com/api/preventivo/visor/admin/accesos';
+  var lista = document.getElementById('lista');
+  var clave = '';
+  try { clave = localStorage.getItem('go_admin_clave') || ''; } catch (e) { /* nada */ }
+  if (!clave) return;
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  fetch(API, { method: 'POST', headers: { Authorization: 'Clave ' + clave } })
+    .then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        if (r.ok && j.ok) return j.empresas;
+        throw new Error(j.error || ('Error ' + r.status));
+      });
+    })
+    .then(function (empresas) {
+      lista.innerHTML = empresas.length ? empresas.map(function (e) {
+        var url = new URL('visor-beta.html#k=' + e.token, location.href).href;
+        return '<div class="emp"><div><b>' + esc(e.nombre) + '</b><small>' + e.equipos +
+          (e.equipos === 1 ? ' equipo' : ' equipos') + '</small></div>' +
+          '<div class="acc"><a href="' + esc(url) + '" target="_blank" rel="noopener">Ver como la empresa</a>' +
+          '<button type="button" data-url="' + esc(url) + '">Copiar enlace</button></div></div>';
+      }).join('') : '<p>Todavía no hay equipos asignados a ninguna empresa.</p>';
+    })
+    .catch(function (e) {
+      lista.innerHTML = '<div class="mal">' + esc(e.message) + '</div>';
+    });
+
+  lista.addEventListener('click', function (ev) {
+    var b = ev.target.closest('button[data-url]');
+    if (!b) return;
+    var url = b.dataset.url;
+    var copia = navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject();
+    copia.then(function () {
+      b.textContent = 'Copiado ✓';
+      setTimeout(function () { b.textContent = 'Copiar enlace'; }, 2000);
+    }).catch(function () {
+      // sin portapapeles: se muestra para copiarlo a mano
+      var i = document.createElement('input');
+      i.readOnly = true; i.value = url;
+      b.closest('.emp').appendChild(i); i.select();
+    });
+  });
+})();
+</script>
+</body>
+</html>

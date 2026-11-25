@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<title>Visor de preventivos · GO Mantenimiento</title>
+<style>
+:root{
+  --tinta:#10161D; --tinta2:#48545F; --tinta3:#5F6B77;
+  --papel:#E9EDF1; --chapa:#FFFFFF; --azul:#0060D6; --azul-pal:#DCE8FA; --linea:#C3CDD6;
+  --rojo:#B03226; --rojo-pal:#FBE6E3; --amarillo:#7A5B00; --amarillo-bar:#E6B400; --amarillo-pal:#FBF1CC;
+  --verde:#166F45; --verde-pal:#E0F1E8; --gris-pal:#EEF1F5;
+  --mono:ui-monospace,'SF Mono',SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;}
+[hidden]{display:none!important;}
+body{margin:0;background:var(--papel);color:var(--tinta);font-size:15px;
+  font-family:system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;}
+.top{background:var(--tinta);color:#fff;padding:18px 16px;border-bottom:4px solid var(--azul);}
+.in{max-width:1100px;margin:0 auto;}
+.fila{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;}
+.marca{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:#8DB4EE;}
+h1{margin:6px 0 0;font-size:24px;letter-spacing:-.02em;text-transform:capitalize;}
+.act{font-size:12.5px;color:#B4C2CE;}
+main{padding:18px 16px 50px;}
+button,select,input{font:inherit;}
+button{cursor:pointer;}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--azul);outline-offset:2px;}
+.btn{border:0;border-radius:8px;padding:9px 14px;font-weight:700;font-size:13.5px;background:var(--azul);color:#fff;}
+.btn.sec{background:var(--gris-pal);color:var(--tinta);}
+.btn:disabled{opacity:.55;cursor:default;}
+.aviso{background:var(--chapa);border-left:4px solid var(--azul);border-radius:0 8px 8px 0;padding:14px 16px;margin-bottom:14px;line-height:1.5;}
+.aviso.mal{border-left-color:var(--rojo);background:var(--rojo-pal);}
+.chips{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:14px;}
+.chip{display:flex;flex-direction:column;align-items:flex-start;gap:2px;background:var(--chapa);
+  border:1px solid var(--linea);border-left:4px solid var(--linea);border-radius:8px;padding:10px 12px;color:var(--tinta2);font-size:12.5px;}
+.chip b{font-family:var(--mono);font-size:26px;color:var(--tinta);}
+.chip.rojo{border-left-color:var(--rojo);} .chip.rojo b{color:var(--rojo);}
+.chip.amarillo{border-left-color:var(--amarillo-bar);} .chip.amarillo b{color:var(--amarillo);}
+.chip.verde{border-left-color:var(--verde);} .chip.verde b{color:var(--verde);}
+.chip[aria-pressed="true"]{background:var(--azul-pal);outline:2px solid var(--azul);outline-offset:-1px;}
+.filtros{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+.filtros select,.filtros input{padding:9px 10px;border:1px solid var(--linea);border-radius:8px;background:var(--chapa);color:var(--tinta);}
+.filtros input{flex:1;min-width:200px;}
+.cuenta{font-size:13px;color:var(--tinta3);margin:0 0 8px;}
+.eq{display:grid;grid-template-columns:130px 1fr 170px;gap:12px;align-items:center;width:100%;text-align:left;
+  background:var(--chapa);border:1px solid var(--linea);border-radius:10px;padding:12px 14px;margin-bottom:8px;color:var(--tinta);}
+.eq:hover{border-color:var(--azul);}
+.cod{font-family:var(--mono);font-weight:700;}
+.det{font-size:13px;color:var(--tinta3);margin-top:2px;}
+.est{justify-self:end;text-align:right;}
+.pill{display:inline-block;font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap;}
+.pill.rojo{background:var(--rojo-pal);color:var(--rojo);}
+.pill.amarillo{background:var(--amarillo-pal);color:var(--amarillo);}
+.pill.verde{background:var(--verde-pal);color:var(--verde);}
+.pill.gris{background:var(--gris-pal);color:var(--tinta2);}
+.prev{background:var(--chapa);border:1px solid var(--linea);border-radius:10px;padding:14px 16px;margin-bottom:10px;}
+.prev-cab{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;}
+.prev p{margin:8px 0 0;font-size:13.5px;color:var(--tinta2);white-space:pre-line;}
+details{margin-top:10px;} summary{cursor:pointer;color:var(--azul);font-weight:700;font-size:13.5px;}
+.tabla{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:8px;}
+th,td{text-align:left;padding:7px 8px;border-top:1px solid var(--linea);vertical-align:top;}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--tinta3);}
+tr.desvio td{background:var(--rojo-pal);}
+.acc{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px;}
+.acc a{font-size:13px;font-weight:700;color:var(--azul);background:var(--azul-pal);border-radius:7px;padding:8px 12px;text-decoration:none;}
+.vacio{background:var(--chapa);border:1px dashed var(--linea);border-radius:10px;padding:30px;text-align:center;color:var(--tinta3);}
+@media (max-width:640px){
+  .eq{grid-template-columns:1fr auto;}
+  .eq .medio{grid-column:1/-1;grid-row:2;}
+}
+</style>
+<script defer src="./actualizar.js"></script>
+</head>
+<body>
+
+<header class="top">
+  <div class="in fila">
+    <div>
+      <div class="marca">GO Mantenimiento · Visor de preventivos</div>
+      <h1 id="empresa">Proveedores</h1>
+    </div>
+    <div class="act"><span id="generado"></span> <button type="button" class="btn sec" id="recargar" hidden>Actualizar</button></div>
+  </div>
+</header>
+
+<main class="in">
+  <div id="estado" class="aviso" role="status">Cargando…</div>
+
+  <section id="lista" hidden>
+    <div class="chips" id="chips"></div>
+    <div class="filtros">
+      <select id="f-inst" aria-label="Institución"></select>
+      <select id="f-tipo" aria-label="Tipo de equipo"></select>
+      <input id="f-texto" type="search" placeholder="Buscar por código, lugar o marca" aria-label="Buscar">
+    </div>
+    <p class="cuenta" id="cuenta"></p>
+    <div id="equipos"></div>
+  </section>
+
+  <section id="ficha" hidden></section>
+</main>
+
+<script>
+(function () {
+  'use strict';
+  var API = 'https://gored-proxy-ov5y.onrender.com/api/preventivo/visor';
+  var TOKEN = new URLSearchParams(location.hash.slice(1)).get('k') || '';
+  // [clave, título de la tarjeta]; el orden es el de urgencia
+  var ESTADOS = [['rojo', 'Vencidos'], ['amarillo', 'Por vencer (7 días)'], ['verde', 'Al día'], ['gris', 'Sin primer preventivo']];
+  var ORDEN = { rojo: 0, amarillo: 1, gris: 2, verde: 3 };
+  var ITEM = { ok: 'En rango', desvio: 'Fuera de rango', sin_regla: '—', sin_dato: 'Sin respuesta' };
+  // PDF: se descargan recién al pedir el primero, con verificación de integridad
+  var LIBS = [
+    ['https://cdn.jsdelivr.net/npm/jspdf@4.2.1/dist/jspdf.umd.min.js',
+      'sha384-qovJwSBbRDPP5cEjCp8S0UP66wrvnjaa60XMOGzTNanrThcrGfXfnZkvgY8N1KT3'],
+    ['https://cdn.jsdelivr.net/npm/jspdf-autotable@5.0.9/dist/jspdf.plugin.autotable.min.js',
+      'sha384-A77YsHWitrPuAj8E0AuB033EXzymUxIajnWKPzrrzqFoYYSCEpFennDUjMG2R1L3'],
+  ];
+
+  var $ = function (id) { return document.getElementById(id); };
+  var equipos = [], filtro = '', empresa = '', actual = null, libs = null, pedido = 0, scrollLista = 0;
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  /* se corta el texto en vez de usar Date: la fecha ya viene en hora argentina */
+  function fecha(iso, conHora) {
+    var m = String(iso || '').match(/^(\d{4})-(\d\d)-(\d\d)(?:[T ](\d\d:\d\d))?/);
+    return m ? m[3] + '/' + m[2] + '/' + m[1] + (conHora && m[4] ? ' ' + m[4] : '') : '—';
+  }
+  function unir(lista) { return lista.filter(Boolean).join(' · '); }
+  function donde(e) { return unir([e.institucion, e.lugar, e.piso ? 'piso ' + e.piso : '', e.ubicacion]); }
+  function vence(e) {
+    var d = e.dias_restantes;
+    if (e.semaforo === 'gris') return 'Sin primer preventivo';
+    if (d === null) return 'Sin fecha';
+    if (d < 0) return 'Vencido hace ' + (-d) + (d === -1 ? ' día' : ' días');
+    return d === 0 ? 'Vence hoy' : 'Vence en ' + d + (d === 1 ? ' día' : ' días');
+  }
+  function pill(e) { return '<span class="pill ' + esc(e.semaforo) + '">' + esc(vence(e)) + '</span>'; }
+  function aviso(texto, mal) {
+    $('estado').hidden = !texto;
+    $('estado').className = 'aviso' + (mal ? ' mal' : '');
+    $('estado').textContent = texto || '';
+  }
+
+  function pedir(ruta) {
+    var ctrl = new AbortController();
+    var t = setTimeout(function () { ctrl.abort(); }, 90000);   // Render dormido tarda en despertar
+    return fetch(API + ruta, { headers: { Authorization: 'Visor ' + TOKEN }, signal: ctrl.signal, cache: 'no-store' })
+      .then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (j) {
+          if (r.ok && j.ok) return j;
+          throw new Error(j.error || ('Error ' + r.status));
+        });
+      })
+      .catch(function (e) {
+        if (e.name === 'AbortError' || e instanceof TypeError) throw new Error('No se pudo conectar. Probá de nuevo en un minuto.');
+        throw e;
+      })
+      .finally(function () { clearTimeout(t); });
+  }
+
+  /* ── lista ─────────────────────────────────────────────── */
+  function opciones(id, campo, todas) {
+    var sel = $(id), antes = sel.value;
+    var vistos = Array.from(new Set(equipos.map(function (e) { return e[campo]; }).filter(Boolean))).sort();
+    sel.innerHTML = '<option value="">' + todas + '</option>' +
+      vistos.map(function (v) { return '<option>' + esc(v) + '</option>'; }).join('');
+    sel.value = vistos.indexOf(antes) >= 0 ? antes : '';
+  }
+
+  function pintar() {
+    var inst = $('f-inst').value, tipo = $('f-tipo').value;
+    var q = plano($('f-texto').value).split(/\s+/).filter(Boolean);
+    var base = equipos.filter(function (e) {
+      return (!inst || e.institucion === inst) && (!tipo || e.tipo === tipo) &&
+        q.every(function (p) { return e._busca.indexOf(p) >= 0; });
+    });
+    // las tarjetas cuentan lo filtrado por institución, tipo y texto
+    $('chips').innerHTML = ESTADOS.map(function (s) {
+      var n = base.filter(function (e) { return e.semaforo === s[0]; }).length;
+      return '<button type="button" class="chip ' + s[0] + '" data-est="' + s[0] + '" aria-pressed="' + (filtro === s[0]) + '">' +
+        '<b>' + n + '</b>' + s[1] + '</button>';
+    }).join('');
+    var ver = filtro ? base.filter(function (e) { return e.semaforo === filtro; }) : base;
+    $('cuenta').textContent = ver.length + ' de ' + equipos.length + ' equipos';
+    $('equipos').innerHTML = ver.length ? ver.map(function (e) {
+      return '<button type="button" class="eq" data-id="' + esc(e.equipo_id) + '">' +
+        '<span class="cod">' + esc(e.equipo_id) + '</span>' +
+        '<span class="medio"><div>' + esc(unir([e.tipo, e.marca, e.capacidad])) + '</div><div class="det">' + esc(donde(e)) + '</div></span>' +
+        '<span class="est">' + pill(e) + '<div class="det">Último: ' + fecha(e.ultimo_preventivo) + '</div></span></button>';
+    }).join('') : '<div class="vacio">' + (equipos.length ? 'Ningún equipo coincide con el filtro.' : 'Todavía no hay equipos asignados a tu empresa.') + '</div>';
+  }
+
+  function plano(s) { return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
+
+  function cargar() {
+    $('recargar').disabled = true;
+    aviso('Cargando… la primera vez puede tardar un minuto.');
+    pedir('/resumen').then(function (r) {
+      empresa = r.empresa;
+      equipos = r.equipos.sort(function (a, b) {
+        return (ORDEN[a.semaforo] - ORDEN[b.semaforo]) ||
+          ((a.dias_restantes == null ? 1e9 : a.dias_restantes) - (b.dias_restantes == null ? 1e9 : b.dias_restantes)) ||
+          a.equipo_id.localeCompare(b.equipo_id);
+      });
+      equipos.forEach(function (e) { e._busca = plano(unir([e.equipo_id, e.tipo, e.marca, donde(e)])); });
+      $('empresa').textContent = empresa;
+      $('generado').textContent = 'Datos del ' + fecha(r.generado, true) + ' ';
+      opciones('f-inst', 'institucion', 'Todas las instituciones');
+      opciones('f-tipo', 'tipo', 'Todos los tipos');
+      aviso('');
+      pintar();
+      if ($('ficha').hidden) $('lista').hidden = false;
+    }).catch(function (e) { aviso(e.message, true); })
+      .finally(function () { $('recargar').disabled = false; $('recargar').hidden = false; });
+  }
+
+  /* ── ficha de un equipo ────────────────────────────────── */
+  function tablaItems(items) {
+    return '<div class="tabla"><table><thead><tr><th>Punto</th><th>Valor</th><th>Óptimo</th><th>Estado</th></tr></thead><tbody>' +
+      items.map(function (i) {
+        return '<tr class="' + esc(i.estado) + '"><td>' + esc(i.etiqueta) + '</td><td>' + esc(valor(i)) + '</td><td>' +
+          esc(i.rango || '—') + '</td><td>' + (ITEM[i.estado] || '—') + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+  function valor(i) { return i.valor === '' ? '—' : i.valor + (i.unidad ? ' ' + i.unidad : ''); }
+  function desvios(p) { return p.checklist.filter(function (i) { return i.estado === 'desvio'; }).length; }
+  function resultado(p) {
+    if (p.resultado !== 'desvio') return 'Conforme';
+    var n = desvios(p);
+    return n ? n + (n === 1 ? ' punto fuera de rango' : ' puntos fuera de rango') : 'Con desvíos';
+  }
+  /* solo enlaces web: lo que venga de la planilla no puede ejecutar nada */
+  function fotos(p) { return p.fotos.filter(function (u) { return /^https:\/\//i.test(u); }); }
+
+  function abrir(id) {
+    var n = ++pedido;
+    scrollLista = window.scrollY;
+    $('lista').hidden = true;
+    $('ficha').hidden = false;
+    $('ficha').innerHTML = '';
+    aviso('Cargando el historial de ' + id + '…');
+    window.scrollTo(0, 0);
+    history.pushState({ ficha: true }, '');
+    pedir('/equipo/' + encodeURIComponent(id)).then(function (r) {
+      if (n !== pedido) return;               // ya volvió o abrió otro
+      actual = r;
+      var e = r.equipo;
+      aviso('');
+      $('ficha').innerHTML = '<div class="acc" style="margin:0 0 12px"><button type="button" class="btn sec" id="volver">← Volver</button></div>' +
+        '<div class="prev"><div class="prev-cab"><span class="cod">' + esc(e.equipo_id) + '</span>' + pill(e) + '</div>' +
+        '<p>' + esc(unir([e.tipo, e.marca, e.capacidad])) + '\n' + esc(donde(e)) + '\nÚltimo preventivo: ' + fecha(e.ultimo_preventivo) +
+        ' · Próximo vencimiento: ' + fecha(e.proximo_venc) + '</p></div>' +
+        (r.preventivos.length ? r.preventivos.map(function (p, i) {
+          return '<article class="prev"><div class="prev-cab"><b>' + fecha(p.fecha, true) + (p.nivel ? ' · ' + esc(p.nivel) : '') + '</b>' +
+            '<span class="pill ' + (p.resultado === 'desvio' ? 'rojo' : 'verde') + '">' + esc(resultado(p)) + '</span></div>' +
+            '<p>' + esc(p.usuario) + (p.observaciones ? '\nObservaciones: ' + esc(p.observaciones) : '') + '</p>' +
+            '<details><summary>Ver checklist (' + p.checklist.length + ' puntos)</summary>' + tablaItems(p.checklist) + '</details>' +
+            '<div class="acc"><button type="button" class="btn" data-pdf="' + i + '">Descargar PDF</button>' +
+            fotos(p).map(function (u, k) {
+              return '<a href="' + esc(u) + '" target="_blank" rel="noopener noreferrer">Foto ' + (k + 1) + '</a>';
+            }).join('') + '</div></article>';
+        }).join('') : '<div class="vacio">Tu empresa todavía no cargó preventivos en este equipo.</div>');
+    }).catch(function (err) {
+      if (n !== pedido) return;
+      aviso(err.message, true);
+      $('ficha').innerHTML = '<button type="button" class="btn sec" id="volver">← Volver</button>';
+    });
+  }
+
+  function cerrar() {
+    pedido++;
+    aviso('');
+    $('ficha').hidden = true;
+    $('lista').hidden = false;
+    window.scrollTo(0, scrollLista);
+  }
+
+  /* ── PDF ───────────────────────────────────────────────── */
+  function script(lib) {
+    return new Promise(function (ok, mal) {
+      var s = document.createElement('script');
+      s.src = lib[0]; s.integrity = lib[1]; s.crossOrigin = 'anonymous';
+      s.onload = ok;
+      s.onerror = function () { s.remove(); mal(new Error('No se pudo preparar el PDF. Revisá la conexión.')); };
+      document.head.appendChild(s);
+    });
+  }
+  function cargarLibs() {
+    if (!libs) libs = script(LIBS[0]).then(function () { return script(LIBS[1]); })
+      .catch(function (e) { libs = null; throw e; });
+    return libs;
+  }
+
+  /* las fuentes del PDF solo tienen el alfabeto latino: el resto se traduce o se quita */
+  function pdfTxt(s) {
+    return String(s == null ? '' : s).replace(/≤/g, '<=').replace(/≥/g, '>=').replace(/→/g, '->')
+      .replace(/[–—]/g, '-').replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/Ω/g, 'ohm')
+      .replace(/[^\n\x20-\x7E\xA0-\xFF]/g, '');
+  }
+
+  function armarPdf(e, p) {
+    var doc = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4' });
+    var ancho = doc.internal.pageSize.getWidth(), alto = doc.internal.pageSize.getHeight(), M = 14, y;
+    var AZUL = [0, 96, 214], TINTA = [16, 22, 29];
+    function tabla(opc) {
+      window.autoTable(doc, Object.assign({
+        startY: y, margin: { left: M, right: M, bottom: 18 },
+        styles: { fontSize: 9, cellPadding: 1.8, textColor: TINTA, overflow: 'linebreak' },
+        headStyles: { fillColor: TINTA, textColor: 255 },
+      }, opc));
+      y = doc.lastAutoTable.finalY + 6;
+    }
+    function lugar(necesita) { if (y + necesita > alto - 18) { doc.addPage(); y = 18; } }
+
+    doc.setFillColor.apply(doc, TINTA); doc.rect(0, 0, ancho, 26, 'F');
+    doc.setFillColor.apply(doc, AZUL); doc.rect(0, 26, ancho, 1.5, 'F');
+    doc.setTextColor(255).setFont('helvetica', 'bold').setFontSize(15).text('Resumen de preventivo', M, 12);
+    doc.setFont('helvetica', 'normal').setFontSize(9).text('GO Mantenimiento · Grupo Oroño', M, 19);
+    doc.text(pdfTxt(e.equipo_id), ancho - M, 12, { align: 'right' });
+    doc.text(fecha(p.fecha, true), ancho - M, 19, { align: 'right' });
+    y = 33;
+
+    tabla({ theme: 'plain', columnStyles: { 0: { fontStyle: 'bold', cellWidth: 42 } },
+      body: [
+        ['Empresa', empresa.toUpperCase()],
+        ['Realizado por', p.usuario],
+        ['Fecha', fecha(p.fecha, true)],
+        ['Equipo', unir([e.equipo_id, e.tipo, e.marca, e.capacidad])],
+        ['Ubicación', donde(e)],
+        p.nivel ? ['Nivel de preventivo', p.nivel] : null,
+        ['Resultado', resultado(p)],
+        p.gps_ok ? ['Presencia en el lugar', p.gps_ok === 'SI' ? 'Verificada' : 'Sin verificación'] : null,
+      ].filter(Boolean).map(function (f) { return f.map(pdfTxt); }) });
+
+    if (p.checklist.length) {
+      tabla({ theme: 'grid', head: [['Punto del checklist', 'Valor', 'Óptimo', 'Estado']],
+        columnStyles: { 0: { cellWidth: 74 }, 3: { cellWidth: 28 } },
+        body: p.checklist.map(function (i) {
+          return [i.etiqueta, valor(i), i.rango || '-', ITEM[i.estado] || '-'].map(pdfTxt);
+        }),
+        didParseCell: function (c) {
+          if (c.section === 'body' && p.checklist[c.row.index].estado === 'desvio') c.cell.styles.fillColor = [251, 230, 227];
+        } });
+    }
+    if (p.observaciones) {
+      lugar(16);
+      tabla({ theme: 'grid', head: [['Observaciones']], body: [[pdfTxt(p.observaciones)]] });
+    }
+    var links = fotos(p);
+    if (links.length) {
+      lugar(8 + links.length * 6);
+      doc.setFont('helvetica', 'bold').setFontSize(10).setTextColor.apply(doc, TINTA);
+      doc.text('Fotos', M, y + 3); y += 9;
+      doc.setFont('helvetica', 'normal').setTextColor.apply(doc, AZUL);
+      links.forEach(function (u, k) { doc.textWithLink('Ver foto ' + (k + 1), M, y, { url: u }); y += 6; });
+    }
+    var n = doc.getNumberOfPages();
+    for (var i = 1; i <= n; i++) {
+      doc.setPage(i);
+      doc.setFont('helvetica', 'normal').setFontSize(8).setTextColor(110);
+      doc.text(pdfTxt('Código de registro: ' + (p.uuid || 'sin código')), M, alto - 8);
+      doc.text('Página ' + i + ' de ' + n, ancho - M, alto - 8, { align: 'right' });
+    }
+    return doc;
+  }
+
+  function descargar(boton) {
+    var datos = actual, p = datos.preventivos[Number(boton.getAttribute('data-pdf'))];
+    boton.disabled = true; boton.textContent = 'Preparando…';
+    cargarLibs().then(function () {
+      var nombre = 'Preventivo_' + datos.equipo.equipo_id + '_' + p.fecha.slice(0, 10) + '_' +
+        p.fecha.slice(11, 16).replace(':', '') + '.pdf';
+      armarPdf(datos.equipo, p).save(nombre.replace(/[^\w.-]/g, ''));
+      aviso('');
+    }).catch(function (e) { aviso(e.message || 'No se pudo generar el PDF.', true); window.scrollTo(0, 0); })
+      .finally(function () { boton.disabled = false; boton.textContent = 'Descargar PDF'; });
+  }
+
+  /* ── eventos ───────────────────────────────────────────── */
+  $('chips').addEventListener('click', function (ev) {
+    var b = ev.target.closest('.chip');
+    if (!b) return;
+    filtro = filtro === b.dataset.est ? '' : b.dataset.est;
+    pintar();
+  });
+  ['f-inst', 'f-tipo', 'f-texto'].forEach(function (id) { $(id).addEventListener('input', pintar); });
+  $('equipos').addEventListener('click', function (ev) {
+    var b = ev.target.closest('.eq');
+    if (b) abrir(b.dataset.id);
+  });
+  $('ficha').addEventListener('click', function (ev) {
+    if (ev.target.closest('#volver')) return history.back();
+    var b = ev.target.closest('[data-pdf]');
+    if (b) descargar(b);
+  });
+  // el «atrás» del celular vuelve a la lista en vez de salir
+  addEventListener('popstate', function () { if (!$('ficha').hidden) cerrar(); });
+  addEventListener('hashchange', function () { location.reload(); });
+  $('recargar').addEventListener('click', function () {
+    if (!$('ficha').hidden) history.back();
+    cargar();
+  });
+
+  if (TOKEN) cargar();
+  else aviso('Para entrar, abrí el enlace completo que te envió el área de Mantenimiento.', true);
+})();
+</script>
+</body>
+</html>
