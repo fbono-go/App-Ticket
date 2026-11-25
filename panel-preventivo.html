@@ -252,6 +252,7 @@ td.num{font-family:var(--mono);text-align:right;}
   table{font-size:13px;} th,td{padding:8px;}
 }
 </style>
+<script defer src="./actualizar.js"></script>
 </head>
 <body>
 
@@ -494,7 +495,7 @@ td.num{font-family:var(--mono);text-align:right;}
 
     Promise.all([
       pedir('/semaforo' + query()),
-      pedir('/bandeja' + qInst())
+      pedir('/bandeja' + (qInst() || '?todas=1'))
     ]).then(function (r) {
       if (mio !== TURNO) return;
       DATOS.semaforo = r[0];
