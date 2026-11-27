@@ -3104,7 +3104,7 @@ function activarPremium(){
 
 // ════ TICKETS PROGRAMADOS (solo con la Prueba activa) ════
 // El servidor crea el ticket solo, a la hora indicada, con el usuario del portal
-// que está en las variables de Render (nadie tiene la app abierta a esa hora).
+// de quien lo programó (se manda al guardar; el servidor guarda la clave cifrada).
 // Acá solo se administra la lista. Se protege con la clave de administración.
 const PROG_CLAVE_KEY = 'area51_prog_clave';
 const PROG_DIAS = ['dom','lun','mar','mié','jue','vie','sáb']; // 0 = domingo, como getDay()
@@ -3146,6 +3146,7 @@ function progResumen(p){
   if(p.frecuencia==='semanal') return (p.diasSemana||[]).map(d=>PROG_DIAS[d]).join(', ')+' · '+p.hora;
   return 'Día '+p.diaMes+' de cada mes · '+p.hora;
 }
+function progAutor(p){ return p.autor || 'usuario fijo del servidor'; }
 function progProxima(p){
   if(!p.activo) return 'Pausada';
   if(!p.proxima) return '';
@@ -3179,6 +3180,7 @@ function progFila(p){
   const linea=(txt,css)=>{ const d=document.createElement('div'); d.style.cssText=css; d.textContent=txt; info.appendChild(d); };
   linea(p.nombre,'font-size:14px;font-weight:700;'+(p.activo?'':'opacity:0.5;'));
   linea(progResumen(p)+' · '+progProxima(p),'font-size:12px;color:var(--text2);margin-top:2px;');
+  linea('Sale a nombre de: '+progAutor(p),'font-size:11px;color:var(--text2);margin-top:2px;overflow-wrap:anywhere;');
   linea(p.ticket&&p.ticket.title||'','font-size:11px;color:var(--text3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;');
   if(p.ultimoError) linea('⚠ '+p.ultimoError,'font-size:11px;color:#B91C1C;margin-top:4px;');
   fila.appendChild(info);
@@ -3201,7 +3203,7 @@ async function progToggle(p){
   progCargar();
 }
 async function progProbar(p){
-  if(!confirm('Esto crea UN ticket real ahora en el portal ("'+p.nombre+'"). ¿Continuar?')) return;
+  if(!confirm('Esto crea UN ticket real ahora en el portal ("'+p.nombre+'"), a nombre de '+progAutor(p)+'. ¿Continuar?')) return;
   progMsg('prog-msg','Creando ticket de prueba…','info');
   try {
     await progApi('/'+p.id+'/probar',{method:'POST'});
@@ -3256,6 +3258,7 @@ async function progGuardar(){
   if(!hora) return err('Elegí la hora.');
   if(progFrec==='semanal' && !progDias.length) return err('Elegí al menos un día de la semana.');
   if(progFrec==='mensual' && !(diaMes>=1 && diaMes<=31)) return err('El día del mes debe estar entre 1 y 31.');
+  if(!MI_EMAIL || !PORTAL_PASS) return err('Cargá tu email y contraseña del portal en Config: el ticket sale a tu nombre.');
   const btn=document.getElementById('prog-btn');
   btn.disabled=true;
   progMsg('prog-form-msg','Guardando…','info');
@@ -3264,9 +3267,11 @@ async function progGuardar(){
       nombre:nombre, frecuencia:progFrec, hora:hora,
       diasSemana:progFrec==='semanal'?progDias:[],
       diaMes:progFrec==='mensual'?diaMes:null,
-      ticket:t.datos
+      ticket:t.datos,
+      email:MI_EMAIL, password:PORTAL_PASS
     }});
-    progMsg('prog-form-msg','✓ Programado · '+progResumen(j.item)+' · '+progProxima(j.item),'ok');
+    if(!j.item.autor) throw new Error('El servidor todavía no se actualizó: borrá esta programación en Config y volvé a crearla en unos minutos.');
+    progMsg('prog-form-msg','✓ Programado · '+progResumen(j.item)+' · '+progProxima(j.item)+' · a nombre de '+j.item.autor,'ok');
   } catch(e){
     err(e.message||String(e));
   } finally {
